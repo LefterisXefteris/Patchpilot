@@ -1,0 +1,28 @@
+{
+  "name": "back-to-service",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "validate:config": "tsx src/index.ts validate-config"
+  },
+  "dependencies": {
+    "@octokit/auth-app": "^7.0.0",
+    "@octokit/rest": "^21.0.2",
+    "@vercel/sdk": "^1.10.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.18.0",
+    "@types/node": "^22.10.7",
+    "eslint": "^9.18.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.20.0",
+    "vitest": "^2.1.8"
+  }
+}
