@@ -92,10 +92,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CONF-01 | Phase 1 | Pending |
-| CONF-02 | Phase 1 | Pending |
-| CONF-03 | Phase 1 | Pending |
-| CONF-04 | Phase 1 | Pending |
+| CONF-01 | Phase 1 | Complete |
+| CONF-02 | Phase 1 | Complete |
+| CONF-03 | Phase 1 | Complete |
+| CONF-04 | Phase 1 | Complete |
 | INCD-01 | Phase 2 | Pending |
 | INCD-02 | Phase 2 | Pending |
 | INCD-03 | Phase 2 | Pending |
