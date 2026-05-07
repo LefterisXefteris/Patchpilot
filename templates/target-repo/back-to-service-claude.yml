@@ -67,5 +67,5 @@ jobs:
             Do not expose secrets.
             Do not make unrelated refactors.
           claude_args: >-
-            --max-turns 20
+            --max-turns 50
             --allowedTools "Read,Write,Edit,Replace,Bash(rg:*),Bash(grep:*),Bash(find:*),Bash(npm:*),Bash(git status:*),Bash(git diff:*)"
