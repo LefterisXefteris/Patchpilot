@@ -51,20 +51,6 @@ jobs:
           AUTOPILOT_DRY_RUN: "false"
           AUTOPILOT_ALLOWED_ACTIONS: create_issue,update_issue,trigger_claude
 
-      - name: Poll Sentry and sync target GitHub issue
-        run: npm run agent:sync -- --apply --limit 5
-        if: ${{ github.event_name != 'workflow_dispatch' || inputs.redispatch != 'true' }}
-        env: *agent_env
-
-      - name: Poll Sentry and redispatch existing target GitHub issues
-        run: npm run agent:sync -- --apply --limit 5 --redispatch
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.redispatch == 'true' }}
-        env: *agent_env
-
-      - name: Verify open incidents and decide retry/escalate
-        run: npm run agent:recover -- --apply --limit 10
-        env:
-          <<: *agent_env
           BTS_TARGET_PRODUCTION_URL: ${{ vars.BTS_TARGET_PRODUCTION_URL }}
           BTS_TARGET_HEALTH_CHECK_PATH: ${{ vars.BTS_TARGET_HEALTH_CHECK_PATH }}
           BTS_TARGET_HEALTH_CHECK_STATUS: ${{ vars.BTS_TARGET_HEALTH_CHECK_STATUS }}
@@ -77,4 +63,18 @@ jobs:
           BTS_RECOVERY_MIN_DEPLOY_AGE_SECONDS: ${{ vars.BTS_RECOVERY_MIN_DEPLOY_AGE_SECONDS }}
           BTS_RECOVERY_NEEDS_HUMAN_LABEL: ${{ vars.BTS_RECOVERY_NEEDS_HUMAN_LABEL }}
           BTS_RECOVERY_RESOLVED_LABEL: ${{ vars.BTS_RECOVERY_RESOLVED_LABEL }}
+
+      - name: Poll Sentry and sync target GitHub issue
+        run: npm run agent:sync -- --apply --limit 5
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.redispatch != 'true' }}
+        env: *agent_env
+
+      - name: Poll Sentry and redispatch existing target GitHub issues
+        run: npm run agent:sync -- --apply --limit 5 --redispatch
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.redispatch == 'true' }}
+        env: *agent_env
+
+      - name: Verify open incidents and decide retry/escalate
+        run: npm run agent:recover -- --apply --limit 10
+        env: *agent_env
 
