@@ -38,6 +38,19 @@ Issues: read/write
 Contents: read/write
 ```
 
+The target workflow also needs these `GITHUB_TOKEN` permissions:
+
+```text
+contents: write
+pull-requests: write
+issues: write
+id-token: write
+```
+
+For the assignment/demo workflow, the template passes the repository `GITHUB_TOKEN` into Claude Code so the target repo can create a draft PR without a separate Claude GitHub App setup. For a harder production deployment, install the official Claude GitHub App or use a dedicated custom GitHub App token.
+
+The template also grants Claude a narrow set of repository tools for the repair loop: file read/write/edit plus `rg`, `grep`, `find`, `npm`, and read-only `git status`/`git diff`.
+
 ## Live Trigger
 
 After the target repo workflow and secret exist:
