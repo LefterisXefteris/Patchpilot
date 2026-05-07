@@ -3,6 +3,8 @@ import { z } from 'zod';
 export const recoveryActions = [
   'create_issue',
   'update_issue',
+  'trigger_agent',
+  'trigger_claude',
   'create_branch',
   'apply_patch',
   'open_pr',
@@ -15,7 +17,10 @@ export const recoveryActions = [
 
 export const RecoveryActionSchema = z.enum(recoveryActions);
 
-const optionalString = z.string().trim().optional().or(z.literal('').transform(() => undefined));
+const optionalString = z.preprocess(
+  (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+  z.string().trim().optional(),
+);
 const requiredString = (envName: string) =>
   z.string({ required_error: `${envName} is required` }).min(1, `${envName} is required`);
 
@@ -39,6 +44,9 @@ export const AppConfigSchema = z.object({
     installationId: requiredString('GITHUB_INSTALLATION_ID'),
     owner: requiredString('GITHUB_OWNER'),
     repo: requiredString('GITHUB_REPO'),
+    targetInstallationId: optionalString,
+    targetOwner: optionalString,
+    targetRepo: optionalString,
     webhookSecret: optionalString,
     baseBranch: z.string().default('main'),
   }),

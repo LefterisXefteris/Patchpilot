@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Back To Service Setup</title>
+    <link rel="stylesheet" href="/assets/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div>
+          <h1>Back To Service</h1>
+          <p>Sentry to GitHub incident intake, agent evaluation, and Claude draft-PR trigger setup.</p>
+        </div>
+        <div class="status-pill" id="save-status">Local only</div>
+      </header>
+
+      <section class="layout">
+        <form id="config-form" class="panel config-panel">
+          <div class="panel-head">
+            <h2>Configuration</h2>
+            <button type="submit">Save .env</button>
+          </div>
+
+          <div class="section-grid">
+            <fieldset>
+              <legend>Sentry</legend>
+              <label>Auth token <input data-key="SENTRY_AUTH_TOKEN" type="password" autocomplete="off" /></label>
+              <label>Organization <input data-key="SENTRY_ORG_SLUG" /></label>
+              <label>Project <input data-key="SENTRY_PROJECT_SLUG" /></label>
+              <label>Environment <input data-key="SENTRY_ENVIRONMENT" /></label>
+              <label>Region URL <input data-key="SENTRY_REGION_URL" /></label>
+            </fieldset>
+
+            <fieldset>
+              <legend>GitHub App</legend>
+              <label>App ID <input data-key="GITHUB_APP_ID" /></label>
+              <label>Installation ID <input data-key="GITHUB_INSTALLATION_ID" /></label>
+              <label>Private key <textarea data-key="GITHUB_APP_PRIVATE_KEY" rows="5"></textarea></label>
+              <label>Agent owner <input data-key="GITHUB_OWNER" /></label>
+              <label>Agent repo <input data-key="GITHUB_REPO" /></label>
+              <label>Target owner <input data-key="GITHUB_TARGET_OWNER" /></label>
+              <label>Target repo <input data-key="GITHUB_TARGET_REPO" /></label>
+              <label>Base branch <input data-key="GITHUB_BASE_BRANCH" /></label>
+            </fieldset>
+
+            <fieldset>
+              <legend>Vercel</legend>
+              <label>Token <input data-key="VERCEL_TOKEN" type="password" autocomplete="off" /></label>
+              <label>Team ID <input data-key="VERCEL_TEAM_ID" /></label>
+              <label>Project ID <input data-key="VERCEL_PROJECT_ID" /></label>
+              <label>Project name <input data-key="VERCEL_PROJECT_NAME" /></label>
+            </fieldset>
+
+            <fieldset>
+              <legend>Claude Worker</legend>
+              <label>Anthropic API key <input data-key="ANTHROPIC_API_KEY" type="password" autocomplete="off" /></label>
+              <p class="field-note">Add this key as a GitHub Actions secret named ANTHROPIC_API_KEY in the target repo before live dispatch.</p>
+            </fieldset>
+
+            <fieldset>
+              <legend>Autopilot</legend>
+              <label class="check"><input data-key="AUTOPILOT_ENABLED" type="checkbox" /> Enabled</label>
+              <label class="check"><input data-key="AUTOPILOT_DRY_RUN" type="checkbox" /> Dry run</label>
+              <label class="check"><input data-key="AUTOPILOT_EMERGENCY_STOP" type="checkbox" /> Emergency stop</label>
+              <label>Allowed actions <input data-key="AUTOPILOT_ALLOWED_ACTIONS" /></label>
+              <label>Confidence threshold <input data-key="AUTOPILOT_CONFIDENCE_THRESHOLD" type="number" min="0" max="1" step="0.01" /></label>
+            </fieldset>
+          </div>
+        </form>
+
+        <aside class="panel run-panel">
+          <div class="panel-head">
+            <h2>Runbook</h2>
+          </div>
+          <div class="button-grid">
+            <button data-command="validate">Validate Config</button>
+            <button data-command="syncDryRun">Sentry Sync Dry Run</button>
+            <button data-command="syncApply" class="danger">Apply GitHub Issue Sync</button>
+            <button data-command="agentRun">Run Agent Loop</button>
+            <button data-command="eval">Run Offline Eval</button>
+            <button data-command="claudeWorkflow">Show Claude Workflow</button>
+            <button data-command="redispatchClaude">Redispatch Existing Issue</button>
+          </div>
+          <div class="secret-list" id="secret-list"></div>
+          <pre id="output" aria-live="polite">Ready.</pre>
+        </aside>
+      </section>
+    </main>
+
+    <script src="/assets/app.js"></script>
+  </body>
+</html>

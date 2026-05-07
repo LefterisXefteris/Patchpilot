@@ -8,12 +8,19 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "lint": "eslint .",
     "test": "vitest run",
-    "validate:config": "tsx src/index.ts validate-config"
+    "validate:config": "tsx src/index.ts validate-config",
+    "agent:sync": "tsx src/index.ts agent:sync",
+    "agent:run": "tsx src/index.ts agent:run",
+    "eval": "tsx src/index.ts eval",
+    "ui": "tsx src/ui/server.ts",
+    "show:claude-workflow": "tsx src/scripts/show-claude-workflow.ts"
   },
   "dependencies": {
+    "@ast-grep/napi": "^0.42.1",
     "@octokit/auth-app": "^7.0.0",
     "@octokit/rest": "^21.0.2",
     "@vercel/sdk": "^1.10.0",
+    "dotenv": "^17.4.2",
     "zod": "^3.24.1"
   },
   "devDependencies": {

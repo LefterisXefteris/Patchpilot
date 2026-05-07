@@ -36,10 +36,61 @@ function parseRecoveryActions(value: string | undefined): RecoveryAction[] {
   return parseCsv(value).filter((action): action is RecoveryAction => recoveryActionSet.has(action));
 }
 
+export function parseGitHubRepositoryInput(value: string | undefined): { owner?: string; repo?: string } {
+  const trimmed = value?.trim();
+
+  if (!trimmed) {
+    return {};
+  }
+
+  let path = trimmed;
+
+  try {
+    const url = new URL(trimmed);
+    if (url.hostname !== 'github.com') {
+      return {};
+    }
+    path = url.pathname;
+  } catch {
+    // Plain owner/repo strings are valid too.
+  }
+
+  const [owner, repo] = path
+    .replace(/^\/+|\/+$/g, '')
+    .split('/')
+    .filter(Boolean);
+
+  if (!owner || !repo) {
+    return {};
+  }
+
+  return {
+    owner,
+    repo: repo.endsWith('.git') ? repo.slice(0, -4) : repo,
+  };
+}
+
+function resolveGitHubRepository(owner: string | undefined, repo: string | undefined): { owner?: string; repo?: string } {
+  const parsedRepo = parseGitHubRepositoryInput(repo);
+  if (parsedRepo.owner && parsedRepo.repo) {
+    return parsedRepo;
+  }
+
+  const parsedOwner = parseGitHubRepositoryInput(owner);
+  if (parsedOwner.owner && parsedOwner.repo) {
+    return parsedOwner;
+  }
+
+  return { owner, repo };
+}
+
 export async function loadConfig(
   secretStore: SecretStore,
   env: NodeJS.ProcessEnv = process.env,
 ): Promise<AppConfig> {
+  const agentRepository = resolveGitHubRepository(env.GITHUB_OWNER, env.GITHUB_REPO);
+  const targetRepository = resolveGitHubRepository(env.GITHUB_TARGET_OWNER, env.GITHUB_TARGET_REPO);
+
   const config = {
     runtime: {
       nodeEnv: env.NODE_ENV ?? 'development',
@@ -58,8 +109,11 @@ export async function loadConfig(
       appId: env.GITHUB_APP_ID,
       privateKey: await secretStore.require('GITHUB_APP_PRIVATE_KEY'),
       installationId: env.GITHUB_INSTALLATION_ID,
-      owner: env.GITHUB_OWNER,
-      repo: env.GITHUB_REPO,
+      owner: agentRepository.owner,
+      repo: agentRepository.repo,
+      targetInstallationId: env.GITHUB_TARGET_INSTALLATION_ID,
+      targetOwner: targetRepository.owner,
+      targetRepo: targetRepository.repo,
       webhookSecret: await secretStore.get('GITHUB_WEBHOOK_SECRET'),
       baseBranch: env.GITHUB_BASE_BRANCH ?? 'main',
     },

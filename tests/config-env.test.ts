@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { loadConfig, loadConfigFromEnv, parseBoolean, parseCsv, parseNumber } from '../src/config/env.js';
+import {
+  loadConfig,
+  loadConfigFromEnv,
+  parseBoolean,
+  parseCsv,
+  parseGitHubRepositoryInput,
+  parseNumber,
+} from '../src/config/env.js';
 import type { SecretStore } from '../src/secrets/types.js';
 import { validEnv } from './test-helpers.js';
 
@@ -30,6 +37,8 @@ describe('env config', () => {
 
     expect(config.sentry.orgSlug).toBe('acme');
     expect(config.github.privateKey).toBe('github-private-key');
+    expect(config.github.repo).toBe('back-to-service');
+    expect(config.github.targetRepo).toBe('web');
     expect(config.vercel.projectId).toBe('prj_123');
     expect(config.autopilot.allowRecoveryHook).toBe(true);
   });
@@ -56,11 +65,26 @@ describe('env config', () => {
     await expect(loadConfigFromEnv({ ...validEnv, VERCEL_PROJECT_ID: undefined })).rejects.toThrow('VERCEL_PROJECT_ID');
   });
 
+  it('normalizes pasted GitHub repository URLs', async () => {
+    const config = await loadConfigFromEnv({
+      ...validEnv,
+      GITHUB_TARGET_OWNER: 'ignored-when-repo-is-url',
+      GITHUB_TARGET_REPO: 'https://github.com/LefterisXefteris/snapsyncai',
+    });
+
+    expect(config.github.targetOwner).toBe('LefterisXefteris');
+    expect(config.github.targetRepo).toBe('snapsyncai');
+  });
+
   it('parses primitive env values', () => {
     expect(parseBoolean('true', false)).toBe(true);
     expect(parseBoolean(undefined, true)).toBe(true);
     expect(parseNumber('42', 1)).toBe(42);
     expect(parseNumber('nope', 1)).toBe(1);
     expect(parseCsv('a, b,,c')).toEqual(['a', 'b', 'c']);
+    expect(parseGitHubRepositoryInput('LefterisXefteris/snapsyncai.git')).toEqual({
+      owner: 'LefterisXefteris',
+      repo: 'snapsyncai',
+    });
   });
 });

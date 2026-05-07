@@ -41,4 +41,14 @@ describe('autopilot policy', () => {
   it('keeps dry-run blocking mutation even when action toggles are true', () => {
     expect(isActionAllowed({ ...validPolicy, dryRun: true }, 'rollback')).toBe(false);
   });
+
+  it('treats GitHub issue writes as mutation actions', () => {
+    expect(isActionAllowed({ ...validPolicy, dryRun: true }, 'create_issue')).toBe(false);
+    expect(isActionAllowed({ ...validPolicy, dryRun: true }, 'update_issue')).toBe(false);
+  });
+
+  it('treats agent triggers as mutation actions', () => {
+    expect(isActionAllowed({ ...validPolicy, dryRun: true }, 'trigger_agent')).toBe(false);
+    expect(isActionAllowed({ ...validPolicy, dryRun: true }, 'trigger_claude')).toBe(false);
+  });
 });

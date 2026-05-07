@@ -3,6 +3,10 @@ import { AppConfigSchema, type AppConfig, type RecoveryAction } from '../config/
 export type AutopilotPolicy = AppConfig['autopilot'];
 
 const mutationActions = new Set<RecoveryAction>([
+  'create_issue',
+  'update_issue',
+  'trigger_agent',
+  'trigger_claude',
   'create_branch',
   'apply_patch',
   'open_pr',

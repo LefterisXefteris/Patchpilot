@@ -1,0 +1,63 @@
+name: Back To Service Poll
+
+on:
+  schedule:
+    # GitHub Actions schedules are not intended for 2 minute polling; 5 minutes is the practical floor.
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+    inputs:
+      redispatch:
+        description: "Dispatch Claude for existing Sentry incident issues too"
+        required: false
+        default: "false"
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Validate integrations
+        run: npm run validate:config
+        env: &agent_env
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG_SLUG: ${{ vars.SENTRY_ORG_SLUG }}
+          SENTRY_PROJECT_SLUG: ${{ vars.SENTRY_PROJECT_SLUG }}
+          SENTRY_ENVIRONMENT: ${{ vars.SENTRY_ENVIRONMENT || 'production' }}
+          SENTRY_REGION_URL: ${{ vars.SENTRY_REGION_URL || 'https://sentry.io' }}
+
+          GITHUB_APP_ID: ${{ secrets.BTS_GITHUB_APP_ID }}
+          GITHUB_APP_PRIVATE_KEY: ${{ secrets.BTS_GITHUB_APP_PRIVATE_KEY }}
+          GITHUB_INSTALLATION_ID: ${{ secrets.BTS_GITHUB_INSTALLATION_ID }}
+          GITHUB_OWNER: ${{ vars.BTS_GITHUB_OWNER }}
+          GITHUB_REPO: ${{ vars.BTS_GITHUB_REPO }}
+          GITHUB_TARGET_INSTALLATION_ID: ${{ secrets.BTS_GITHUB_TARGET_INSTALLATION_ID }}
+          GITHUB_TARGET_OWNER: ${{ vars.BTS_GITHUB_TARGET_OWNER }}
+          GITHUB_TARGET_REPO: ${{ vars.BTS_GITHUB_TARGET_REPO }}
+
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+          VERCEL_TEAM_ID: ${{ vars.VERCEL_TEAM_ID }}
+
+          AUTOPILOT_ENABLED: "true"
+          AUTOPILOT_DRY_RUN: "false"
+          AUTOPILOT_ALLOWED_ACTIONS: create_issue,update_issue,trigger_claude
+
+      - name: Poll Sentry and sync target GitHub issue
+        run: npm run agent:sync -- --apply --limit 5
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.redispatch != 'true' }}
+        env: *agent_env
+
+      - name: Poll Sentry and redispatch existing target GitHub issues
+        run: npm run agent:sync -- --apply --limit 5 --redispatch
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.redispatch == 'true' }}
+        env: *agent_env
+

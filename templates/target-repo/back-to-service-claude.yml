@@ -1,0 +1,49 @@
+name: Back To Service Claude
+
+on:
+  issues:
+    types: [opened, reopened]
+  repository_dispatch:
+    types: [back-to-service.incident]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  fix:
+    if: >-
+      github.event_name == 'repository_dispatch' ||
+      contains(github.event.issue.body, '<!-- back-to-service:sentry-issue-id:')
+    runs-on: ubuntu-latest
+    env:
+      INCIDENT_ISSUE_URL: ${{ github.event.issue.html_url || github.event.client_payload.issueUrl }}
+      INCIDENT_TITLE: ${{ github.event.issue.title || github.event.client_payload.title }}
+      SENTRY_SHORT_ID: ${{ github.event.client_payload.shortId || 'from-github-issue' }}
+      SENTRY_ISSUE_ID: ${{ github.event.client_payload.sentryIssueId || 'from-github-issue' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            You are fixing a production incident from Back To Service.
+
+            GitHub incident issue: ${{ env.INCIDENT_ISSUE_URL }}
+            Sentry issue: ${{ env.SENTRY_SHORT_ID }}
+            Sentry issue id: ${{ env.SENTRY_ISSUE_ID }}
+            Title: ${{ env.INCIDENT_TITLE }}
+
+            Inspect the repository and identify the smallest safe fix for the production error.
+            Read the linked GitHub issue body for Sentry evidence, stack details, and Back To Service status.
+            Run available checks before opening a PR.
+            Open a draft pull request linked to the incident issue.
+
+            Do not merge.
+            Do not deploy.
+            Do not rollback.
+            Do not expose secrets.
+            Do not make unrelated refactors.
+          claude_args: "--max-turns 10"

@@ -29,11 +29,29 @@ export class GitHubClient {
 
   async validateAccess(): Promise<IntegrationValidationResult> {
     const checkedAt = new Date().toISOString();
+    const target = this.targetRepository();
+
+    if (!target.explicit) {
+      return {
+        provider: 'github',
+        ok: false,
+        checkedAt,
+        details: {
+          owner: this.config.owner,
+          repo: this.config.repo,
+          targetOwner: null,
+          targetRepo: null,
+        },
+        missingScopes: ['target_repository'],
+        errorCode: 'github_target_repository_missing',
+        errorMessage: 'GITHUB_TARGET_OWNER and GITHUB_TARGET_REPO must point at the broken service repository.',
+      };
+    }
 
     try {
       const deps = this.deps ?? this.createDefaultDependencies();
       const token = await deps.createInstallationToken();
-      const repository = await deps.getRepository(token, this.config.owner, this.config.repo);
+      const repository = await deps.getRepository(token, target.owner, target.repo);
       const missingScopes = this.missingPermissions(repository.permissions);
 
       if (missingScopes.length > 0) {
@@ -62,8 +80,8 @@ export class GitHubClient {
         ok: false,
         checkedAt,
         details: {
-          owner: this.config.owner,
-          repo: this.config.repo,
+          owner: target.owner,
+          repo: target.repo,
         },
         errorCode: 'github_request_failed',
         errorMessage: redactText(errorMessage, [
@@ -77,10 +95,11 @@ export class GitHubClient {
   private createDefaultDependencies(): GitHubValidationDependencies {
     return {
       createInstallationToken: async () => {
+        const target = this.targetRepository();
         const auth = createAppAuth({
           appId: this.config.appId,
           privateKey: this.config.privateKey.replace(/\\n/g, '\n'),
-          installationId: Number(this.config.installationId),
+          installationId: Number(target.installationId),
         });
         const installationAuthentication = await auth({ type: 'installation' });
         return installationAuthentication.token;
@@ -104,14 +123,27 @@ export class GitHubClient {
     }
 
     return Object.entries(REQUIRED_GITHUB_REPOSITORY_PERMISSIONS)
-      .filter(([permission, required]) => required && permissions[permission] !== true)
+      .filter(([permission, required]) => required && permissions[permission] === false)
       .map(([permission]) => permission);
   }
 
-  private details(repository: RepositoryMetadata): Record<string, string | number | boolean | null> {
+  private targetRepository(): { owner: string; repo: string; installationId: string; explicit: boolean } {
     return {
-      owner: this.config.owner,
-      repo: this.config.repo,
+      owner: this.config.targetOwner ?? this.config.owner,
+      repo: this.config.targetRepo ?? this.config.repo,
+      installationId: this.config.targetInstallationId ?? this.config.installationId,
+      explicit: Boolean(this.config.targetOwner && this.config.targetRepo),
+    };
+  }
+
+  private details(repository: RepositoryMetadata): Record<string, string | number | boolean | null> {
+    const target = this.targetRepository();
+
+    return {
+      owner: target.owner,
+      repo: target.repo,
+      agentOwner: this.config.owner,
+      agentRepo: this.config.repo,
       fullName: repository.full_name,
       repositoryId: repository.id,
       private: repository.private,
