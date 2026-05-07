@@ -42,6 +42,10 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ github.token }}
+          # Back To Service triggers via repository_dispatch from a GitHub App, so the
+          # workflow actor is a bot. Allow it; the body marker + event-type filters above
+          # already constrain who can fire the workflow.
+          allowed_bots: '*'
           prompt: |
             You are fixing a production incident from Back To Service.
 
