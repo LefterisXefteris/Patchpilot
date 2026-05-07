@@ -30,6 +30,8 @@ Then add this GitHub Actions repository secret in the target repo:
 ANTHROPIC_API_KEY
 ```
 
+The secret must point to an Anthropic account with enough credits for Claude Code runs. If the workflow starts but fails with a low-credit Anthropic error, Back To Service intake is working; replenish credits or rotate the secret, then use a manual redispatch or comment `/back-to-service fix` on the incident issue.
+
 The Back To Service GitHub App must be installed on the target repo with:
 
 ```text
@@ -68,6 +70,8 @@ The normal expected result is:
 ```text
 Back To Service creates a GitHub issue -> GitHub Actions starts immediately -> Claude opens a draft PR
 ```
+
+Default unattended behavior dispatches Claude for new production Sentry incidents only. Existing incidents are updated without redispatch during normal polling; `agent:recover` handles retries when verification still sees production failing and the retry budget allows it.
 
 The backup trigger is a `repository_dispatch` event named:
 

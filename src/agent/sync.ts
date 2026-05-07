@@ -209,14 +209,26 @@ async function syncNewIssue(
     title: buildIssueTitle(issue),
     body: buildIssueBody(issue, marker),
   });
+  const claudeDispatch = await maybeDispatchClaude(config, github, issue, created.number, created.htmlUrl, dryRun);
 
   return {
     ...baseResult(issue, marker),
     action: 'created_issue',
-    claudeDispatch: await maybeDispatchClaude(config, github, issue, created.number, created.htmlUrl, dryRun),
+    claudeDispatch,
     githubIssueNumber: created.number,
     githubIssueUrl: created.htmlUrl,
   };
+}
+
+export function buildClaudeDispatchComment(issue: SentryIssueSummary): string {
+  return [
+    '## Back To Service - Claude queued',
+    '',
+    `Claude Code was dispatched to open a draft PR for Sentry issue ${issue.shortId}.`,
+    '',
+    'Allowed: inspect the repository, apply the smallest safe patch, run available checks, and open or update a draft PR.',
+    'Blocked: merge, deploy, rollback, secret exposure, and unrelated refactors.',
+  ].join('\n');
 }
 
 async function maybeDispatchClaude(
@@ -243,6 +255,7 @@ async function maybeDispatchClaude(
     title: issue.title,
     marker: sentryIssueMarker(issue.id),
   });
+  await github.addIssueComment(githubIssueNumber, buildClaudeDispatchComment(issue));
 
   return 'dispatched';
 }

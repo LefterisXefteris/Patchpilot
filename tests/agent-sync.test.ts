@@ -68,6 +68,7 @@ describe('runAgentSync', () => {
 
   it('dispatches Claude after creating a new GitHub issue when policy allows it', async () => {
     const createRepositoryDispatch = vi.fn();
+    const addIssueComment = vi.fn();
     const summary = await runAgentSync(
       await loadConfigFromEnv(validEnv),
       { apply: true },
@@ -76,7 +77,7 @@ describe('runAgentSync', () => {
         github: {
           findIssueByMarker: async () => undefined,
           createIssue: async () => ({ number: 9, title: 'Created', htmlUrl: 'https://github.example/issues/9' }),
-          addIssueComment: vi.fn(),
+          addIssueComment,
           createRepositoryDispatch,
         },
       },
@@ -89,6 +90,32 @@ describe('runAgentSync', () => {
       shortId: 'NODE-1',
       issueNumber: 9,
     }));
+    expect(addIssueComment).toHaveBeenCalledWith(9, expect.stringContaining('Claude Code was dispatched'));
+    expect(addIssueComment).toHaveBeenCalledWith(9, expect.stringContaining('Blocked: merge, deploy, rollback'));
+  });
+
+  it('does not redispatch Claude for existing issues during normal apply sync', async () => {
+    const createRepositoryDispatch = vi.fn();
+    const addIssueComment = vi.fn();
+    const summary = await runAgentSync(
+      await loadConfigFromEnv(validEnv),
+      { apply: true },
+      {
+        sentry: { listUnresolvedProductionIssues: async () => [issue] },
+        github: {
+          findIssueByMarker: async () => ({ number: 7, title: 'Existing', body: sentryIssueMarker(issue.id) }),
+          createIssue: vi.fn(),
+          addIssueComment,
+          createRepositoryDispatch,
+        },
+      },
+    );
+
+    expect(summary.results[0]?.action).toBe('updated_issue');
+    expect(summary.results[0]?.claudeDispatch).toBe('skipped');
+    expect(addIssueComment).toHaveBeenCalledOnce();
+    expect(addIssueComment).toHaveBeenCalledWith(7, expect.stringContaining('still unresolved in production'));
+    expect(createRepositoryDispatch).not.toHaveBeenCalled();
   });
 
   it('redispatches Claude for existing issues only when requested', async () => {
