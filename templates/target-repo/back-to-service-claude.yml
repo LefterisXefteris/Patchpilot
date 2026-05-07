@@ -3,6 +3,8 @@ name: Back To Service Claude
 on:
   issues:
     types: [opened, reopened]
+  issue_comment:
+    types: [created]
   repository_dispatch:
     types: [back-to-service.incident]
 
@@ -15,7 +17,16 @@ jobs:
   fix:
     if: >-
       github.event_name == 'repository_dispatch' ||
-      contains(github.event.issue.body, '<!-- back-to-service:sentry-issue-id:')
+      (
+        contains(github.event.issue.body, '<!-- back-to-service:sentry-issue-id:') &&
+        (
+          github.event_name == 'issues' ||
+          (
+            github.event_name == 'issue_comment' &&
+            contains(github.event.comment.body, '/back-to-service fix')
+          )
+        )
+      )
     runs-on: ubuntu-latest
     env:
       INCIDENT_ISSUE_URL: ${{ github.event.issue.html_url || github.event.client_payload.issueUrl }}

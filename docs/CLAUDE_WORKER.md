@@ -8,7 +8,7 @@ The preferred v1 path is issue-first:
 Sentry -> Back To Service -> GitHub issue in target repo -> Claude workflow opens draft PR
 ```
 
-The workflow also supports `repository_dispatch` as an explicit backup trigger.
+The workflow also supports `repository_dispatch` as an explicit backup trigger. For existing issues, comment `/back-to-service fix` on a Back To Service Sentry-marker issue to trigger Claude manually.
 
 ## Target Repo Setup
 
@@ -70,6 +70,12 @@ Claude should then open a draft PR in the target repo. It must not merge, deploy
 
 ```text
 <!-- back-to-service:sentry-issue-id:
+```
+
+- Existing issues can be retried with this comment:
+
+```text
+/back-to-service fix
 ```
 
 - GitHub does not start new workflow runs for most events created with a workflow `GITHUB_TOKEN`, but Back To Service uses a GitHub App installation token. GitHub documents GitHub App installation tokens as the correct way to trigger events from automation when needed.
