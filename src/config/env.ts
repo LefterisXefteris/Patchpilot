@@ -124,6 +124,15 @@ export async function loadConfig(
       projectId: env.VERCEL_PROJECT_ID,
       projectName: env.VERCEL_PROJECT_NAME,
     },
+    target: {
+      productionUrl: env.BTS_TARGET_PRODUCTION_URL,
+      healthCheckPath: env.BTS_TARGET_HEALTH_CHECK_PATH ?? '/',
+      healthCheckExpectedStatus: parseNumber(env.BTS_TARGET_HEALTH_CHECK_STATUS, 200),
+      healthCheckTimeoutMs: parseNumber(env.BTS_TARGET_HEALTH_CHECK_TIMEOUT_MS, 10_000),
+      vercelProjectId: env.BTS_TARGET_VERCEL_PROJECT_ID ?? env.VERCEL_PROJECT_ID,
+      vercelTeamId: env.BTS_TARGET_VERCEL_TEAM_ID ?? env.VERCEL_TEAM_ID,
+      sentryProjectSlug: env.BTS_TARGET_SENTRY_PROJECT_SLUG ?? env.SENTRY_PROJECT_SLUG,
+    },
     autopilot: {
       enabled: parseBoolean(env.AUTOPILOT_ENABLED, false),
       dryRun: parseBoolean(env.AUTOPILOT_DRY_RUN, true),

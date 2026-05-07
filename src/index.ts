@@ -5,12 +5,13 @@ import { runIncidentAgent } from './agentic/loop.js';
 import { runEvalHarness, runPromptAblation } from './eval/run-eval.js';
 import { redactText } from './security/redact.js';
 import { validateIntegrations } from './validation/validate-integrations.js';
+import { verifyRecovery } from './verification/verify-recovery.js';
 
 export async function main(argv = process.argv.slice(2)): Promise<number> {
   loadDotenvFile();
 
-  if (!['validate-config', 'agent:sync', 'agent:run', 'eval'].includes(argv[0] ?? '')) {
-    console.log('Usage: back-to-service <validate-config|agent:sync|agent:run|eval> [--apply] [--limit N] [--db PATH]');
+  if (!['validate-config', 'agent:sync', 'agent:run', 'agent:verify', 'eval'].includes(argv[0] ?? '')) {
+    console.log('Usage: back-to-service <validate-config|agent:sync|agent:run|agent:verify|eval> [--apply] [--limit N] [--db PATH] [--sentry-issue ID]');
     return 1;
   }
 
@@ -39,6 +40,15 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
 
     if (!config) {
       throw new Error('Config failed to load');
+    }
+
+    if (argv[0] === 'agent:verify') {
+      const result = await verifyRecovery({
+        config,
+        sentryIssueId: parseStringArg(argv, '--sentry-issue'),
+      });
+      console.log(JSON.stringify(result, null, 2));
+      return result.verdict === 'recovered' ? 0 : 1;
     }
 
     if (argv[0] === 'agent:sync') {

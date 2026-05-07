@@ -57,6 +57,15 @@ export const AppConfigSchema = z.object({
     projectId: requiredString('VERCEL_PROJECT_ID'),
     projectName: optionalString,
   }),
+  target: z.object({
+    productionUrl: optionalString,
+    healthCheckPath: z.string().default('/'),
+    healthCheckExpectedStatus: z.coerce.number().int().default(200),
+    healthCheckTimeoutMs: z.number().int().default(10_000),
+    vercelProjectId: optionalString,
+    vercelTeamId: optionalString,
+    sentryProjectSlug: optionalString,
+  }),
   autopilot: z.object({
     enabled: z.boolean().default(false),
     dryRun: z.boolean().default(true),

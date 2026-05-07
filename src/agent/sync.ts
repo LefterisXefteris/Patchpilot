@@ -2,6 +2,8 @@ import type { AppConfig } from '../config/schema.js';
 import { isActionAllowed } from '../policy/autopilot-policy.js';
 import { GitHubIssueSyncClient } from '../providers/github/issues.js';
 import { SentryIssuesClient, type SentryIssueSummary } from '../providers/sentry/issues.js';
+import { verifyRecovery } from '../verification/verify-recovery.js';
+import type { VerificationResult } from '../verification/types.js';
 
 export type AgentSyncOptions = {
   apply?: boolean;
@@ -26,6 +28,7 @@ export type AgentSyncSummary = {
   dryRun: boolean;
   sentryIssueCount: number;
   results: AgentSyncIssueResult[];
+  verification?: VerificationResult;
 };
 
 type SentryIssuesPort = Pick<SentryIssuesClient, 'listUnresolvedProductionIssues'>;
@@ -61,11 +64,18 @@ export async function runAgentSync(
     results.push(await syncNewIssue(config, github, issue, marker, dryRun));
   }
 
+  let verification: VerificationResult | undefined;
+  if (!dryRun && config.target.productionUrl && issues.length > 0) {
+    const firstIssueId = issues[0]?.id ? String(issues[0].id) : undefined;
+    verification = await verifyRecovery({ config, sentryIssueId: firstIssueId });
+  }
+
   return {
     ok: results.every((result) => result.action !== 'blocked'),
     dryRun,
     sentryIssueCount: issues.length,
     results,
+    verification,
   };
 }
 
