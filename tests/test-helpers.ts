@@ -1,4 +1,4 @@
-import type { AppConfig } from '../src/config/schema.js';
+import { AppConfigSchema, type AppConfig } from '../src/config/schema.js';
 
 export const validEnv = {
   NODE_ENV: 'test',
@@ -37,6 +37,13 @@ export const validEnv = {
   AUTOPILOT_ALLOW_ROLLBACK: 'true',
   AUTOPILOT_ALLOW_RECOVERY_HOOK: 'true',
   AUTOPILOT_EMERGENCY_STOP: 'false',
+  BTS_TARGET_PRODUCTION_URL: '',
+  BTS_TARGET_HEALTH_CHECK_PATH: '/',
+  BTS_TARGET_HEALTH_CHECK_STATUS: '200',
+  BTS_TARGET_HEALTH_CHECK_TIMEOUT_MS: '10000',
+  BTS_TARGET_VERCEL_PROJECT_ID: '',
+  BTS_TARGET_VERCEL_TEAM_ID: '',
+  BTS_TARGET_SENTRY_PROJECT_SLUG: '',
 } satisfies NodeJS.ProcessEnv;
 
 export const validPolicy: AppConfig['autopilot'] = {
@@ -53,3 +60,49 @@ export const validPolicy: AppConfig['autopilot'] = {
   allowRollback: true,
   allowRecoveryHook: true,
 };
+
+export function createTestConfig(overrides: Record<string, unknown> = {}): AppConfig {
+  const base = {
+    runtime: { nodeEnv: 'test', logLevel: 'debug', dryRun: true },
+    sentry: {
+      authToken: 'sentry-secret',
+      orgSlug: 'acme',
+      projectSlug: 'web',
+      environment: 'production',
+      regionUrl: 'https://sentry.io',
+    },
+    github: {
+      appId: '123',
+      privateKey: 'github-private-key',
+      installationId: '456',
+      owner: 'acme',
+      repo: 'back-to-service',
+      baseBranch: 'main',
+      targetOwner: 'acme',
+      targetRepo: 'web',
+    },
+    vercel: {
+      token: 'vercel-secret',
+      teamId: 'team_123',
+      projectId: 'prj_123',
+    },
+    target: {
+      healthCheckPath: '/',
+      healthCheckExpectedStatus: 200,
+      healthCheckTimeoutMs: 10_000,
+      ...((overrides.target as Record<string, unknown>) ?? {}),
+    },
+    recovery: {
+      maxAttempts: 3,
+      partialToleranceCycles: 2,
+      minDeployAgeSeconds: 60,
+      needsHumanLabel: 'needs-human',
+      resolvedLabel: 'auto-recovery-resolved',
+      ...((overrides.recovery as Record<string, unknown>) ?? {}),
+    },
+    autopilot: validPolicy,
+  };
+
+  const { target: _t, recovery: _r, ...rest } = overrides;
+  return AppConfigSchema.parse({ ...base, ...rest });
+}

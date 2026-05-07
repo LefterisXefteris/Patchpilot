@@ -3,14 +3,15 @@ import { loadDotenvFile } from './config/dotenv.js';
 import { runAgentSync } from './agent/sync.js';
 import { runIncidentAgent } from './agentic/loop.js';
 import { runEvalHarness, runPromptAblation } from './eval/run-eval.js';
+import { runRecoveryLoop } from './recovery/run-recovery.js';
 import { redactText } from './security/redact.js';
 import { validateIntegrations } from './validation/validate-integrations.js';
 
 export async function main(argv = process.argv.slice(2)): Promise<number> {
   loadDotenvFile();
 
-  if (!['validate-config', 'agent:sync', 'agent:run', 'eval'].includes(argv[0] ?? '')) {
-    console.log('Usage: back-to-service <validate-config|agent:sync|agent:run|eval> [--apply] [--limit N] [--db PATH]');
+  if (!['validate-config', 'agent:sync', 'agent:run', 'agent:recover', 'eval'].includes(argv[0] ?? '')) {
+    console.log('Usage: back-to-service <validate-config|agent:sync|agent:run|agent:recover|eval> [--apply] [--limit N] [--db PATH]');
     return 1;
   }
 
@@ -46,6 +47,16 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
         apply: argv.includes('--apply'),
         limit: parseLimit(argv),
         redispatch: argv.includes('--redispatch'),
+      });
+      console.log(JSON.stringify(summary, null, 2));
+      return summary.ok ? 0 : 1;
+    }
+
+    if (argv[0] === 'agent:recover') {
+      const summary = await runRecoveryLoop(config, {
+        apply: argv.includes('--apply'),
+        limit: parseLimit(argv),
+        dbPath: parseStringArg(argv, '--db') ?? '.back-to-service/agent-state.sqlite',
       });
       console.log(JSON.stringify(summary, null, 2));
       return summary.ok ? 0 : 1;

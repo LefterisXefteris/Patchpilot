@@ -8,6 +8,8 @@ export type GitHubIssueSummary = {
   title: string;
   body?: string | null;
   htmlUrl?: string;
+  labels?: string[];
+  state?: string;
 };
 
 export type CreateGitHubIssueInput = {
@@ -15,11 +17,15 @@ export type CreateGitHubIssueInput = {
   body: string;
 };
 
+export const BACK_TO_SERVICE_MARKER_PREFIX = '<!-- back-to-service:sentry-issue-id:';
+
 export type GitHubIssueDependencies = {
   createInstallationToken: () => Promise<string>;
   listOpenIssues: (token: string, owner: string, repo: string) => Promise<GitHubIssueSummary[]>;
   createIssue: (token: string, owner: string, repo: string, input: CreateGitHubIssueInput) => Promise<GitHubIssueSummary>;
   createIssueComment: (token: string, owner: string, repo: string, issueNumber: number, body: string) => Promise<void>;
+  addLabels?: (token: string, owner: string, repo: string, issueNumber: number, labels: string[]) => Promise<void>;
+  closeIssue?: (token: string, owner: string, repo: string, issueNumber: number) => Promise<void>;
   createRepositoryDispatch?: (
     token: string,
     owner: string,
@@ -55,6 +61,36 @@ export class GitHubIssueSyncClient {
     const token = await deps.createInstallationToken();
     const target = this.targetRepository();
     await deps.createIssueComment(token, target.owner, target.repo, issueNumber, body);
+  }
+
+  async listIncidentIssues(limit = 25): Promise<GitHubIssueSummary[]> {
+    const deps = this.deps ?? this.createDefaultDependencies();
+    const token = await deps.createInstallationToken();
+    const target = this.targetRepository();
+    const issues = await deps.listOpenIssues(token, target.owner, target.repo);
+    return issues
+      .filter((issue) => issue.body?.includes(BACK_TO_SERVICE_MARKER_PREFIX))
+      .slice(0, limit);
+  }
+
+  async addIssueLabels(issueNumber: number, labels: string[]): Promise<void> {
+    const deps = this.deps ?? this.createDefaultDependencies();
+    if (!deps.addLabels) {
+      throw new Error('GitHub addLabels dependency is not configured');
+    }
+    const token = await deps.createInstallationToken();
+    const target = this.targetRepository();
+    await deps.addLabels(token, target.owner, target.repo, issueNumber, labels);
+  }
+
+  async closeIssue(issueNumber: number): Promise<void> {
+    const deps = this.deps ?? this.createDefaultDependencies();
+    if (!deps.closeIssue) {
+      throw new Error('GitHub closeIssue dependency is not configured');
+    }
+    const token = await deps.createInstallationToken();
+    const target = this.targetRepository();
+    await deps.closeIssue(token, target.owner, target.repo, issueNumber);
   }
 
   async createRepositoryDispatch(eventType: string, clientPayload: Record<string, unknown>): Promise<void> {
@@ -97,6 +133,10 @@ export class GitHubIssueSyncClient {
             title: issue.title,
             body: issue.body,
             htmlUrl: issue.html_url,
+            labels: (issue.labels ?? [])
+              .map((label) => (typeof label === 'string' ? label : label.name ?? ''))
+              .filter(Boolean),
+            state: issue.state,
           }));
       },
       createIssue: async (token, owner, repo, input) => {
@@ -117,6 +157,14 @@ export class GitHubIssueSyncClient {
       createIssueComment: async (token, owner, repo, issueNumber, body) => {
         const octokit = new Octokit({ auth: token });
         await octokit.issues.createComment({ owner, repo, issue_number: issueNumber, body });
+      },
+      addLabels: async (token, owner, repo, issueNumber, labels) => {
+        const octokit = new Octokit({ auth: token });
+        await octokit.issues.addLabels({ owner, repo, issue_number: issueNumber, labels });
+      },
+      closeIssue: async (token, owner, repo, issueNumber) => {
+        const octokit = new Octokit({ auth: token });
+        await octokit.issues.update({ owner, repo, issue_number: issueNumber, state: 'closed' });
       },
       createRepositoryDispatch: async (token, owner, repo, eventType, clientPayload) => {
         const octokit = new Octokit({ auth: token });

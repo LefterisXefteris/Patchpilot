@@ -3,6 +3,8 @@ import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 import type { AgentDecision, AgentMetrics, JsonValue } from '../agentic/types.js';
+import type { RecoveryAttemptRecord } from '../recovery/types.js';
+import type { VerificationResult } from '../verification/types.js';
 
 export type ToolCallRecord = {
   runId: string;
@@ -89,7 +91,57 @@ export class SqliteStateStore {
         metrics_json TEXT NOT NULL,
         created_at TEXT NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS recovery_attempts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        incident_id TEXT NOT NULL,
+        sentry_issue_id TEXT,
+        attempt_number INTEGER NOT NULL,
+        verdict TEXT NOT NULL,
+        action TEXT NOT NULL,
+        reason TEXT,
+        partial_streak INTEGER NOT NULL DEFAULT 0,
+        verification_json TEXT NOT NULL,
+        verified_at TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_recovery_attempts_incident
+        ON recovery_attempts (incident_id, id);
     `);
+  }
+
+  recordRecoveryAttempt(record: RecoveryAttemptRecord, verification: VerificationResult): void {
+    this.exec(`
+      INSERT INTO recovery_attempts
+        (incident_id, sentry_issue_id, attempt_number, verdict, action, reason, partial_streak, verification_json, verified_at, created_at)
+      VALUES
+        (${q(record.incidentId)}, ${q(record.sentryIssueId)}, ${record.attemptNumber}, ${q(record.verdict)}, ${q(record.action)},
+         ${q(record.reason)}, ${record.partialStreak}, ${q(verification as unknown as JsonValue)}, ${q(record.verifiedAt)}, ${q(new Date().toISOString())});
+    `);
+  }
+
+  getLatestRecoveryAttempt(incidentId: string): RecoveryAttemptRecord | undefined {
+    const sql = `SELECT incident_id, sentry_issue_id, attempt_number, verdict, action, reason, partial_streak, verified_at
+      FROM recovery_attempts WHERE incident_id = ${q(incidentId)} ORDER BY id DESC LIMIT 1;`;
+    const out = execFileSync('sqlite3', ['-separator', '\t', this.dbPath, sql], { stdio: ['ignore', 'pipe', 'pipe'] })
+      .toString()
+      .trim();
+    if (!out) {
+      return undefined;
+    }
+    const cols = out.split('\t');
+    if (cols.length < 8) {
+      return undefined;
+    }
+    return {
+      incidentId: cols[0] ?? '',
+      sentryIssueId: cols[1] || undefined,
+      attemptNumber: Number(cols[2] ?? 0),
+      verdict: (cols[3] ?? 'needs_human') as RecoveryAttemptRecord['verdict'],
+      action: (cols[4] ?? 'wait') as RecoveryAttemptRecord['action'],
+      reason: cols[5] ?? '',
+      partialStreak: Number(cols[6] ?? 0),
+      verifiedAt: cols[7] ?? new Date().toISOString(),
+    };
   }
 
   upsertIncident(input: { id: string; sentryIssueId?: string; status: string; data: JsonValue }): void {

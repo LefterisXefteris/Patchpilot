@@ -61,3 +61,20 @@ jobs:
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.redispatch == 'true' }}
         env: *agent_env
 
+      - name: Verify open incidents and decide retry/escalate
+        run: npm run agent:recover -- --apply --limit 10
+        env:
+          <<: *agent_env
+          BTS_TARGET_PRODUCTION_URL: ${{ vars.BTS_TARGET_PRODUCTION_URL }}
+          BTS_TARGET_HEALTH_CHECK_PATH: ${{ vars.BTS_TARGET_HEALTH_CHECK_PATH }}
+          BTS_TARGET_HEALTH_CHECK_STATUS: ${{ vars.BTS_TARGET_HEALTH_CHECK_STATUS }}
+          BTS_TARGET_HEALTH_CHECK_TIMEOUT_MS: ${{ vars.BTS_TARGET_HEALTH_CHECK_TIMEOUT_MS }}
+          BTS_TARGET_VERCEL_PROJECT_ID: ${{ vars.BTS_TARGET_VERCEL_PROJECT_ID }}
+          BTS_TARGET_VERCEL_TEAM_ID: ${{ vars.BTS_TARGET_VERCEL_TEAM_ID }}
+          BTS_TARGET_SENTRY_PROJECT_SLUG: ${{ vars.BTS_TARGET_SENTRY_PROJECT_SLUG }}
+          BTS_RECOVERY_MAX_ATTEMPTS: ${{ vars.BTS_RECOVERY_MAX_ATTEMPTS }}
+          BTS_RECOVERY_PARTIAL_TOLERANCE: ${{ vars.BTS_RECOVERY_PARTIAL_TOLERANCE }}
+          BTS_RECOVERY_MIN_DEPLOY_AGE_SECONDS: ${{ vars.BTS_RECOVERY_MIN_DEPLOY_AGE_SECONDS }}
+          BTS_RECOVERY_NEEDS_HUMAN_LABEL: ${{ vars.BTS_RECOVERY_NEEDS_HUMAN_LABEL }}
+          BTS_RECOVERY_RESOLVED_LABEL: ${{ vars.BTS_RECOVERY_RESOLVED_LABEL }}
+

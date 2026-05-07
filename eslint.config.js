@@ -10,7 +10,7 @@ const nodeGlobals = {
 
 export default tseslint.config(
   {
-    ignores: ['dist/**', 'node_modules/**', 'coverage/**', 'src/ui/public/**'],
+    ignores: ['dist/**', 'node_modules/**', 'coverage/**', 'src/ui/public/**', '.claude/**'],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
@@ -18,6 +18,12 @@ export default tseslint.config(
     files: ['src/**/*.ts', 'tests/**/*.ts', 'vitest.config.ts'],
     languageOptions: {
       globals: nodeGlobals,
+    },
+    rules: {
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_', destructuredArrayIgnorePattern: '^_' },
+      ],
     },
   },
 );
