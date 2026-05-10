@@ -116,7 +116,11 @@ describe('runIncidentAgent', () => {
 
     expect(summary.decision.action).toBe('trigger_claude');
     expect(summary.decision.retrievedMemoryCount).toBeGreaterThanOrEqual(1);
+    expect(summary.decision.primarySuspectFile).toBe('src/main.tsx');
+    expect(summary.decision.fileMappingConfidence).toBeGreaterThan(0.6);
     expect(summary.selectedTools).toContain('sentry_get_issue_event');
+    expect(trace).toContain('Suspect files');
+    expect(trace).toContain('src/main.tsx');
     expect(trace).toContain('Relevant prior incidents');
     expect(trace).toContain('runtimeConfig was missing');
     vi.restoreAllMocks();

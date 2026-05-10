@@ -53,6 +53,8 @@ For the assignment/demo workflow, the template passes the repository `GITHUB_TOK
 
 The template also grants Claude a narrow set of repository tools for the repair loop: file read/write/edit plus `rg`, `grep`, `find`, `npm`, and read-only `git status`/`git diff`.
 
+When Back To Service dispatches with suspect files from Sentry stack frames or SQLite memory, Claude should inspect those files first. Broad repo search is a fallback when the suspect files do not explain the incident.
+
 ## Live Trigger
 
 After the target repo workflow and secret exist:

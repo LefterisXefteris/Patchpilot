@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { selectWatchableGitHubIssues } from '../agent/github-issue-watcher.js';
+import { formatSuspectFiles, mapSuspectFiles, type SuspectFileMapping } from '../diagnosis/suspect-files.js';
 import { isActionAllowed } from '../policy/autopilot-policy.js';
 import type { AppConfig } from '../config/schema.js';
 import { sentryIssueMarker } from '../agent/sync.js';
@@ -163,6 +164,8 @@ async function runDecisionPath(input: {
     3,
   );
   const memoryContext = formatIncidentMemories(memories, 1000);
+  const fileMapping = mapSuspectFiles({ event, memories, limit: 5 });
+  const suspectFileContext = formatSuspectFiles(fileMapping, 700);
   const injectionRisk = /ignore previous|rollback|merge|print secret|exfiltrate|private key/i.test(
     `${title} ${JSON.stringify(event ?? {})}`,
   );
@@ -186,6 +189,8 @@ async function runDecisionPath(input: {
       reason: 'Issue is not from production, so autonomous recovery is blocked.',
       sentryIssueId,
       retrievedMemoryCount: memories.length,
+      primarySuspectFile: fileMapping.primaryFile,
+      fileMappingConfidence: fileMapping.mappingConfidence,
     };
   }
 
@@ -198,14 +203,16 @@ async function runDecisionPath(input: {
       issueUrl,
       sentryIssueId,
       retrievedMemoryCount: memories.length,
+      primarySuspectFile: fileMapping.primaryFile,
+      fileMappingConfidence: fileMapping.mappingConfidence,
     };
-    rememberDecision(input, { decision, issue, event, outcome: 'needs_human', rootCauseSummary: decision.reason, fixSummary: 'Human review required before any recovery action.' });
+    rememberDecision(input, { decision, issue, event, fileMapping, outcome: 'needs_human', rootCauseSummary: decision.reason, fixSummary: 'Human review required before any recovery action.' });
     return decision;
   }
 
   await input.callTool('github_add_agent_status_comment', {
     issueNumber: issueNumber ?? 0,
-    body: buildAcceptedIssueComment({ issue, event, confidence, vercelOk: vercelResult.ok, memoryContext }),
+    body: buildAcceptedIssueComment({ issue, event, confidence, vercelOk: vercelResult.ok, memoryContext, suspectFileContext }),
   });
 
   if (!eventResult.ok || confidence < 0.75) {
@@ -219,11 +226,14 @@ async function runDecisionPath(input: {
       issueUrl,
       sentryIssueId,
       retrievedMemoryCount: memories.length,
+      primarySuspectFile: fileMapping.primaryFile,
+      fileMappingConfidence: fileMapping.mappingConfidence,
     };
     rememberDecision(input, {
       decision,
       issue,
       event,
+      fileMapping,
       outcome: 'needs_human',
       rootCauseSummary: decision.reason,
       fixSummary: 'Keep the existing GitHub incident open for human diagnosis.',
@@ -240,11 +250,14 @@ async function runDecisionPath(input: {
       issueUrl,
       sentryIssueId,
       retrievedMemoryCount: memories.length,
+      primarySuspectFile: fileMapping.primaryFile,
+      fileMappingConfidence: fileMapping.mappingConfidence,
     };
     rememberDecision(input, {
       decision,
       issue,
       event,
+      fileMapping,
       outcome: 'policy_blocked',
       rootCauseSummary: decision.reason,
       fixSummary: 'Enable an allowed draft-PR dispatch action or route the issue to a human.',
@@ -259,6 +272,7 @@ async function runDecisionPath(input: {
     issueUrl: issueUrl ?? '',
     title,
     memoryContext,
+    suspectFileContext,
   });
 
   const decision: AgentDecision = {
@@ -270,11 +284,14 @@ async function runDecisionPath(input: {
     sentryIssueId,
     triggeredClaude: Boolean(dispatchResult.output.dispatched),
     retrievedMemoryCount: memories.length,
+    primarySuspectFile: fileMapping.primaryFile,
+    fileMappingConfidence: fileMapping.mappingConfidence,
   };
   rememberDecision(input, {
     decision,
     issue,
     event,
+    fileMapping,
     outcome: 'queued_patch',
     rootCauseSummary: 'High-confidence production incident with current Sentry evidence and deployment context.',
     fixSummary: memoryContext
@@ -290,6 +307,7 @@ function buildAcceptedIssueComment(input: {
   confidence: number;
   vercelOk: boolean;
   memoryContext: string;
+  suspectFileContext: string;
 }): string {
   return [
     '## Back To Service Status',
@@ -303,6 +321,7 @@ function buildAcceptedIssueComment(input: {
     '- Diagnosis: pending',
     '- Patch: draft PR only',
     input.event ? `- Evidence event id: ${String(input.event.id ?? 'unknown')}` : '- Evidence event: unavailable',
+    input.suspectFileContext ? ['', input.suspectFileContext].join('\n') : undefined,
     input.memoryContext ? ['', input.memoryContext].join('\n') : undefined,
   ]
     .filter((line): line is string => line !== undefined)
@@ -319,6 +338,7 @@ function rememberDecision(
     decision: AgentDecision;
     issue: JsonObject;
     event?: JsonObject;
+    fileMapping: SuspectFileMapping;
     outcome: string;
     rootCauseSummary: string;
     fixSummary: string;
@@ -336,6 +356,9 @@ function rememberDecision(
       fixSummary: memoryInput.fixSummary,
       outcome: memoryInput.outcome,
       confidence: memoryInput.decision.confidence,
+      suspectFiles: memoryInput.fileMapping.suspectFiles,
+      primaryFile: memoryInput.fileMapping.primaryFile,
+      mappingConfidence: memoryInput.fileMapping.mappingConfidence,
       labels: readLabels(input.githubIssue),
       metadata: {
         action: memoryInput.decision.action,

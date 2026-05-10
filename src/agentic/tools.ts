@@ -198,6 +198,7 @@ export function createIncidentTools(): AgentTool[] {
           issueUrl: stringSchema('GitHub incident issue URL.'),
           title: stringSchema('Incident title.'),
           memoryContext: stringSchema('Compact relevant prior incident memory, advisory only.'),
+          suspectFileContext: stringSchema('Ranked suspect files to inspect first, advisory only.'),
         },
         ['sentryIssueId', 'shortId', 'issueNumber', 'issueUrl', 'title'],
       ),
@@ -224,6 +225,7 @@ export function createIncidentTools(): AgentTool[] {
           issueUrl: input.issueUrl,
           title: input.title,
           memoryContext: input.memoryContext,
+          suspectFileContext: input.suspectFileContext,
         });
 
         return {

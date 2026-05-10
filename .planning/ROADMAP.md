@@ -51,9 +51,10 @@ This avoids spending agent effort on workflows Sentry and GitHub already cover.
 **Success Criteria:**
 1. The agent fetches Sentry issue/event details from the linked GitHub issue.
 2. It retrieves only compact, redacted prior incident lessons from SQLite as advisory context.
-3. It identifies likely repository files and commits from stack frames and release metadata.
-4. It correlates incidents to active or recent Vercel production deployments.
-5. It comments diagnosis, confidence, affected surface, and a concrete patch plan on the existing issue.
+3. It maps Sentry stack frames and memory to a ranked suspect-file list so repair starts narrow.
+4. It identifies likely repository files and commits from stack frames and release metadata.
+5. It correlates incidents to active or recent Vercel production deployments.
+6. It comments diagnosis, confidence, affected surface, and a concrete patch plan on the existing issue.
 
 ### Phase 4: Patch PR Loop
 

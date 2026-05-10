@@ -3,6 +3,7 @@ import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 import type { AgentDecision, AgentMetrics, JsonValue } from '../agentic/types.js';
+import type { SuspectFile } from '../diagnosis/suspect-files.js';
 import {
   buildIncidentMemory,
   buildIncidentMemoryQuery,
@@ -127,6 +128,9 @@ export class SqliteStateStore {
         fix_summary TEXT NOT NULL,
         outcome TEXT NOT NULL,
         confidence REAL NOT NULL,
+        suspect_files_json TEXT NOT NULL DEFAULT '[]',
+        primary_file TEXT,
+        mapping_confidence REAL NOT NULL DEFAULT 0,
         labels_json TEXT NOT NULL,
         metadata_json TEXT NOT NULL,
         created_at TEXT NOT NULL,
@@ -137,6 +141,7 @@ export class SqliteStateStore {
       CREATE INDEX IF NOT EXISTS idx_incident_memory_fingerprint
         ON incident_memory (fingerprint);
     `);
+    this.ensureIncidentMemoryColumns();
   }
 
   recordIncidentMemory(input: IncidentMemoryInput, extraSecrets: Array<string | undefined> = []): IncidentMemoryRecord {
@@ -145,11 +150,13 @@ export class SqliteStateStore {
     this.exec(`
       INSERT INTO incident_memory
         (id, sentry_issue_id, github_issue_number, github_issue_url, title, environment, stack_signature, fingerprint,
-         root_cause_summary, fix_summary, outcome, confidence, labels_json, metadata_json, created_at, updated_at)
+         root_cause_summary, fix_summary, outcome, confidence, suspect_files_json, primary_file, mapping_confidence,
+         labels_json, metadata_json, created_at, updated_at)
       VALUES
         (${q(memory.id)}, ${q(memory.sentryIssueId)}, ${memory.githubIssueNumber ?? 'NULL'}, ${q(memory.githubIssueUrl)},
          ${q(memory.title)}, ${q(memory.environment)}, ${q(memory.stackSignature)}, ${q(memory.fingerprint)},
          ${q(memory.rootCauseSummary)}, ${q(memory.fixSummary)}, ${q(memory.outcome)}, ${memory.confidence},
+         ${q(memory.suspectFiles)}, ${q(memory.primaryFile)}, ${memory.mappingConfidence},
          ${q(memory.labels)}, ${q(memory.metadata)}, ${q(now)}, ${q(now)})
       ON CONFLICT(fingerprint) DO UPDATE SET
         sentry_issue_id = excluded.sentry_issue_id,
@@ -162,6 +169,9 @@ export class SqliteStateStore {
         fix_summary = excluded.fix_summary,
         outcome = excluded.outcome,
         confidence = excluded.confidence,
+        suspect_files_json = excluded.suspect_files_json,
+        primary_file = excluded.primary_file,
+        mapping_confidence = excluded.mapping_confidence,
         labels_json = excluded.labels_json,
         metadata_json = excluded.metadata_json,
         updated_at = excluded.updated_at;
@@ -286,9 +296,32 @@ export class SqliteStateStore {
     execFileSync('sqlite3', [this.dbPath, sql], { stdio: 'pipe' });
   }
 
+  private ensureIncidentMemoryColumns(): void {
+    const existing = new Set(
+      execFileSync('sqlite3', ['-separator', '\t', this.dbPath, 'PRAGMA table_info(incident_memory);'], {
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+        .toString()
+        .split('\n')
+        .map((line) => line.split('\t')[1])
+        .filter(Boolean),
+    );
+    const columns = [
+      { name: 'suspect_files_json', sql: "ALTER TABLE incident_memory ADD COLUMN suspect_files_json TEXT NOT NULL DEFAULT '[]';" },
+      { name: 'primary_file', sql: 'ALTER TABLE incident_memory ADD COLUMN primary_file TEXT;' },
+      { name: 'mapping_confidence', sql: 'ALTER TABLE incident_memory ADD COLUMN mapping_confidence REAL NOT NULL DEFAULT 0;' },
+    ];
+    for (const column of columns) {
+      if (!existing.has(column.name)) {
+        this.exec(column.sql);
+      }
+    }
+  }
+
   private listIncidentMemories(): IncidentMemoryRecord[] {
     const sql = `SELECT id, sentry_issue_id, github_issue_number, github_issue_url, title, environment, stack_signature, fingerprint,
-      root_cause_summary, fix_summary, outcome, confidence, labels_json, metadata_json, created_at, updated_at
+      root_cause_summary, fix_summary, outcome, confidence, suspect_files_json, primary_file, mapping_confidence,
+      labels_json, metadata_json, created_at, updated_at
       FROM incident_memory;`;
     const out = execFileSync('sqlite3', ['-separator', '\t', this.dbPath, sql], { stdio: ['ignore', 'pipe', 'pipe'] })
       .toString()
@@ -300,7 +333,7 @@ export class SqliteStateStore {
     return out
       .split('\n')
       .map((line) => line.split('\t'))
-      .filter((cols) => cols.length >= 16)
+      .filter((cols) => cols.length >= 19)
       .map((cols) => ({
         id: cols[0] ?? '',
         sentryIssueId: cols[1] || undefined,
@@ -314,10 +347,13 @@ export class SqliteStateStore {
         fixSummary: cols[9] ?? '',
         outcome: cols[10] ?? '',
         confidence: Number(cols[11] ?? 0),
-        labels: parseJsonArray(cols[12]),
-        metadata: parseJsonObject(cols[13]),
-        createdAt: cols[14],
-        updatedAt: cols[15],
+        suspectFiles: parseSuspectFiles(cols[12]),
+        primaryFile: cols[13] || undefined,
+        mappingConfidence: Number(cols[14] ?? 0),
+        labels: parseJsonArray(cols[15]),
+        metadata: parseJsonObject(cols[16]),
+        createdAt: cols[17],
+        updatedAt: cols[18],
       }));
   }
 }
@@ -346,5 +382,34 @@ function parseJsonObject(value: string | undefined): Record<string, JsonValue> {
     return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as Record<string, JsonValue>) : {};
   } catch {
     return {};
+  }
+}
+
+function parseSuspectFiles(value: string | undefined): SuspectFile[] {
+  try {
+    const parsed = JSON.parse(value ?? '[]') as unknown;
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+    return parsed.flatMap((item) => {
+      if (typeof item === 'string') {
+        return [{ path: item, score: 50, reason: 'stored memory', source: 'memory' as const }];
+      }
+      if (!item || typeof item !== 'object') {
+        return [];
+      }
+      const record = item as Record<string, unknown>;
+      const source: SuspectFile['source'] = record.source === 'stack' || record.source === 'stack+memory' ? record.source : 'memory';
+      return [
+        {
+          path: String(record.path ?? ''),
+          score: Number(record.score ?? 50),
+          reason: String(record.reason ?? 'stored memory'),
+          source,
+        },
+      ].filter((file) => file.path);
+    });
+  } catch {
+    return [];
   }
 }

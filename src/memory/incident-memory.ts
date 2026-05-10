@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 
 import { redactJson } from '../agentic/observability.js';
 import type { JsonObject, JsonValue } from '../agentic/types.js';
+import { mapSuspectFiles, type SuspectFile } from '../diagnosis/suspect-files.js';
 
 export type IncidentMemoryInput = {
   sentryIssueId?: string;
@@ -14,6 +15,9 @@ export type IncidentMemoryInput = {
   fixSummary: string;
   outcome: string;
   confidence: number;
+  suspectFiles?: SuspectFile[];
+  primaryFile?: string;
+  mappingConfidence?: number;
   labels?: string[];
   metadata?: JsonObject;
 };
@@ -31,6 +35,9 @@ export type IncidentMemoryRecord = {
   fixSummary: string;
   outcome: string;
   confidence: number;
+  suspectFiles: SuspectFile[];
+  primaryFile?: string;
+  mappingConfidence: number;
   labels: string[];
   metadata: JsonObject;
   createdAt?: string;
@@ -51,6 +58,20 @@ export function buildIncidentMemory(input: IncidentMemoryInput, extraSecrets: Ar
   const redactedTitle = compactText(String(redactJson(input.title, extraSecrets) ?? ''), 180);
   const redactedRootCause = compactText(String(redactJson(input.rootCauseSummary, extraSecrets) ?? ''), 240);
   const redactedFix = compactText(String(redactJson(input.fixSummary, extraSecrets) ?? ''), 240);
+  const mappedFiles = input.suspectFiles?.length
+    ? input.suspectFiles
+    : mapSuspectFiles({ event: input.event }).suspectFiles;
+  const suspectFiles = mappedFiles.map((file) => ({
+    path: compactText(String(redactJson(file.path, extraSecrets) ?? ''), 160),
+    score: Math.min(Math.max(Number(file.score), 0), 100),
+    reason: compactText(String(redactJson(file.reason, extraSecrets) ?? ''), 180),
+    source: file.source,
+  }));
+  const primaryFile = input.primaryFile ?? suspectFiles[0]?.path;
+  const metadata: JsonObject = { ...redactedMetadata, suspectFiles };
+  if (primaryFile) {
+    metadata.primaryFile = primaryFile;
+  }
   const fingerprint = buildIncidentFingerprint({
     title: redactedTitle,
     environment: input.environment,
@@ -70,8 +91,11 @@ export function buildIncidentMemory(input: IncidentMemoryInput, extraSecrets: Ar
     fixSummary: redactedFix,
     outcome: compactText(String(redactJson(input.outcome, extraSecrets) ?? ''), 80),
     confidence: input.confidence,
+    suspectFiles,
+    primaryFile,
+    mappingConfidence: input.mappingConfidence ?? (suspectFiles[0] ? Number(Math.min(0.95, suspectFiles[0].score / 100).toFixed(2)) : 0),
     labels: (input.labels ?? []).map((label) => compactText(label, 40)),
-    metadata: redactedMetadata,
+    metadata,
   };
 }
 
@@ -146,8 +170,9 @@ export function formatIncidentMemories(memories: IncidentMemoryRecord[], maxChar
 
   const lines = ['Relevant prior incidents (advisory only; verify against current evidence):'];
   for (const memory of memories.slice(0, 3)) {
+    const files = memory.suspectFiles.length ? `; files: ${memory.suspectFiles.map((file) => file.path).join(', ')}` : '';
     lines.push(
-      `- ${memory.title} [${memory.outcome}, confidence ${memory.confidence.toFixed(2)}]: root cause: ${memory.rootCauseSummary}; fix: ${memory.fixSummary}; stack: ${memory.stackSignature}`,
+      `- ${memory.title} [${memory.outcome}, confidence ${memory.confidence.toFixed(2)}]: root cause: ${memory.rootCauseSummary}; fix: ${memory.fixSummary}; stack: ${memory.stackSignature}${files}`,
     );
   }
 

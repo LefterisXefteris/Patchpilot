@@ -35,6 +35,8 @@ jobs:
       INCIDENT_TITLE: ${{ github.event.issue.title || github.event.client_payload.title }}
       SENTRY_SHORT_ID: ${{ github.event.client_payload.shortId || 'from-github-issue' }}
       SENTRY_ISSUE_ID: ${{ github.event.client_payload.sentryIssueId || 'from-github-issue' }}
+      BTS_SUSPECT_FILES: ${{ github.event.client_payload.suspectFileContext || '' }}
+      BTS_MEMORY_CONTEXT: ${{ github.event.client_payload.memoryContext || '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -54,8 +56,16 @@ jobs:
             Sentry issue id: ${{ env.SENTRY_ISSUE_ID }}
             Title: ${{ env.INCIDENT_TITLE }}
 
+            Suspect files from Back To Service:
+            ${{ env.BTS_SUSPECT_FILES }}
+
+            Prior incident memory from Back To Service:
+            ${{ env.BTS_MEMORY_CONTEXT }}
+
             Inspect the repository and identify the smallest safe fix for the production error.
             Read the linked GitHub issue body for Sentry evidence, stack details, and Back To Service status.
+            If suspect files are provided, inspect those files first with rg/Read before broadening search.
+            If suspect files do not explain the issue, broaden search and explain why in the PR.
             If the incident mentions SENTRY_TEST_CRASH or an intentional frontend boot failure, first search for that exact string and remove or guard the intentional throw.
             Prefer the smallest patch that stops the production boot crash.
             Run available checks before opening a PR; if a check is unavailable, mention that in the PR.

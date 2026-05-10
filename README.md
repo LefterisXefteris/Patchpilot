@@ -61,11 +61,12 @@ Back To Service uses meaningful typed tools around real production systems:
 | `vercel_get_latest_production_deployment` | Check the target production deployment. |
 | `severity_calculator` | Score incident severity/confidence in the agent harness. |
 | incident memory | Retrieve compact prior Sentry incident lessons from SQLite. |
+| suspect-file mapping | Rank likely source files from Sentry stack frames and incident memory. |
 | recovery deploy check | Verify latest Vercel production deployment is `READY`. |
 | recovery health check | Verify the production URL responds with the expected status. |
 | recovery Sentry check | Verify the Sentry issue is quiet or resolved. |
 
-Claude Code then uses repo tools such as read, edit, search, `npm`, `git`, and `gh` inside the target repo workflow.
+Claude Code then uses repo tools such as read, edit, search, `npm`, `git`, and `gh` inside the target repo workflow. When Back To Service can map Sentry frames to files, Claude is told to inspect those suspect files first and broaden search only if they do not explain the issue.
 
 ## Commands
 
@@ -145,6 +146,8 @@ The memory layer stores short redacted lessons such as stack signature, root-cau
 
 During diagnosis, the agent retrieves at most a few similar lessons and formats them into a small "Relevant prior incidents" block. This reduces token use by replacing repeated old context with a compact hint, while still fetching current Sentry evidence.
 
+Back To Service also maps Sentry stack frames and prior memory to a small suspect-file list. The dispatch payload can include paths such as `src/main.tsx` with a confidence score and reason, so the repair worker starts with a narrow file set instead of scanning the whole repo by default.
+
 ## Assignment 2 Mapping
 
 Assignment:
@@ -185,6 +188,7 @@ It covers adversarial and operational scenarios such as:
 - Prompt injection in incident evidence cannot force rollback, merge, or secret disclosure.
 - Low-confidence diagnosis chooses `needs_human`.
 - Repeated synthetic crashes retrieve prior memory while still using current Sentry evidence.
+- Repeated stack-frame crashes map directly to suspect files such as `src/main.tsx`.
 
 Run:
 

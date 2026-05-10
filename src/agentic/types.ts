@@ -35,6 +35,8 @@ export type AgentDecision = {
   sentryIssueId?: string;
   triggeredClaude?: boolean;
   retrievedMemoryCount?: number;
+  primarySuspectFile?: string;
+  fileMappingConfidence?: number;
 };
 
 export type IncidentRunInput = {
