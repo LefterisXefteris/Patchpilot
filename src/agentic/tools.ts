@@ -34,8 +34,20 @@ const booleanSchema = (description: string) => ({ type: 'boolean', description }
 export function createIncidentTools(): AgentTool[] {
   return [
     {
+      name: 'github_list_sentry_incident_issues',
+      description: 'List open GitHub issues that may have been created by Sentry GitHub integration.',
+      inputSchema: objectSchema({ limit: numberSchema('Maximum number of issues to return.') }),
+      outputSchema: objectSchema({ issues: { type: 'array', items: { type: 'object' } } }),
+      execute: async (input, context) => ({
+        ok: true,
+        output: {
+          issues: context.fixture.githubIssues.slice(0, Number(input.limit ?? 10)) as JsonValue,
+        },
+      }),
+    },
+    {
       name: 'sentry_list_issues',
-      description: 'List unresolved Sentry issues for the configured production project.',
+      description: 'Legacy fallback: list unresolved Sentry issues for the configured production project.',
       inputSchema: objectSchema({ limit: numberSchema('Maximum number of issues to return.') }),
       outputSchema: objectSchema({ issues: { type: 'array', items: { type: 'object' } } }),
       execute: async (input, context) => ({
@@ -219,6 +231,28 @@ export function createIncidentTools(): AgentTool[] {
             eventType,
           },
         };
+      },
+    },
+    {
+      name: 'github_add_agent_status_comment',
+      description: 'Add a lightweight Back To Service status comment to an existing GitHub incident issue.',
+      inputSchema: objectSchema(
+        {
+          issueNumber: numberSchema('GitHub incident issue number.'),
+          body: stringSchema('Status comment body.'),
+        },
+        ['issueNumber', 'body'],
+      ),
+      outputSchema: objectSchema({
+        commented: booleanSchema('Whether a comment was written.'),
+      }),
+      execute: async (input, context) => {
+        if (!context.config || context.dryRun) {
+          return { ok: true, output: { commented: false } };
+        }
+
+        await new GitHubIssueSyncClient(context.config.github).addIssueComment(Number(input.issueNumber), String(input.body));
+        return { ok: true, output: { commented: true } };
       },
     },
   ];

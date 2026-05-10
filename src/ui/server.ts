@@ -94,12 +94,12 @@ function configPayload(): { values: EnvFileData; secretStatus: Record<string, bo
 async function runCommand(command: CommandName | undefined): Promise<{ ok: boolean; command: string; output: string }> {
   const commandMap: Record<CommandName, string[]> = {
     validate: ['run', 'validate:config'],
-    syncDryRun: ['run', 'agent:sync', '--', '--limit', '5'],
-    syncApply: ['run', 'agent:sync', '--', '--apply', '--limit', '5'],
+    syncDryRun: ['run', 'agent:watch', '--', '--limit', '5'],
+    syncApply: ['run', 'agent:watch', '--', '--apply', '--limit', '5'],
     agentRun: ['run', 'agent:run'],
     eval: ['run', 'eval'],
     claudeWorkflow: ['run', 'show:claude-workflow'],
-    redispatchClaude: ['run', 'agent:sync', '--', '--apply', '--limit', '5', '--redispatch'],
+    redispatchClaude: ['run', 'agent:watch', '--', '--apply', '--limit', '5'],
   };
   const args = command ? commandMap[command] : undefined;
   if (!args) {

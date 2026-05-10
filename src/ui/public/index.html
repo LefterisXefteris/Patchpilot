@@ -11,7 +11,7 @@
       <header class="topbar">
         <div>
           <h1>Back To Service</h1>
-          <p>Sentry to GitHub incident intake, agent evaluation, and Claude draft-PR trigger setup.</p>
+          <p>GitHub issue watching, Sentry evidence lookup, agent evaluation, and Claude draft-PR trigger setup.</p>
         </div>
         <div class="status-pill" id="save-status">Local only</div>
       </header>
@@ -76,12 +76,12 @@
           </div>
           <div class="button-grid">
             <button data-command="validate">Validate Config</button>
-            <button data-command="syncDryRun">Sentry Sync Dry Run</button>
-            <button data-command="syncApply" class="danger">Apply GitHub Issue Sync</button>
+            <button data-command="syncDryRun">Issue Watch Dry Run</button>
+            <button data-command="syncApply" class="danger">Apply Issue Watch</button>
             <button data-command="agentRun">Run Agent Loop</button>
             <button data-command="eval">Run Offline Eval</button>
             <button data-command="claudeWorkflow">Show Claude Workflow</button>
-            <button data-command="redispatchClaude">Redispatch Existing Issue</button>
+            <button data-command="redispatchClaude">Dispatch Accepted Issues</button>
           </div>
           <div class="secret-list" id="secret-list"></div>
           <pre id="output" aria-live="polite">Ready.</pre>

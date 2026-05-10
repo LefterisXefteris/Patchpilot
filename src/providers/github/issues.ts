@@ -64,13 +64,17 @@ export class GitHubIssueSyncClient {
   }
 
   async listIncidentIssues(limit = 25): Promise<GitHubIssueSummary[]> {
-    const deps = this.deps ?? this.createDefaultDependencies();
-    const token = await deps.createInstallationToken();
-    const target = this.targetRepository();
-    const issues = await deps.listOpenIssues(token, target.owner, target.repo);
+    const issues = await this.listOpenIssues();
     return issues
       .filter((issue) => issue.body?.includes(BACK_TO_SERVICE_MARKER_PREFIX))
       .slice(0, limit);
+  }
+
+  async listOpenIssues(): Promise<GitHubIssueSummary[]> {
+    const deps = this.deps ?? this.createDefaultDependencies();
+    const token = await deps.createInstallationToken();
+    const target = this.targetRepository();
+    return deps.listOpenIssues(token, target.owner, target.repo);
   }
 
   async addIssueLabels(issueNumber: number, labels: string[]): Promise<void> {

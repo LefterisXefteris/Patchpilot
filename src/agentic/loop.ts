@@ -1,8 +1,10 @@
 import { randomUUID } from 'node:crypto';
 
+import { selectWatchableGitHubIssues } from '../agent/github-issue-watcher.js';
 import { isActionAllowed } from '../policy/autopilot-policy.js';
 import type { AppConfig } from '../config/schema.js';
 import { sentryIssueMarker } from '../agent/sync.js';
+import type { GitHubIssueSummary } from '../providers/github/issues.js';
 import { SqliteStateStore } from '../state/sqlite-store.js';
 import { estimateCostUsd, estimateTokens, logJson, redactJson } from './observability.js';
 import { createIncidentTools, toolSchemas, type AgentTool, type ToolExecutionContext, type ToolExecutionResult } from './tools.js';
@@ -72,15 +74,20 @@ export async function runIncidentAgent(input: IncidentRunInput & { dbPath: strin
     return result;
   };
 
-  const listResult = await callTool('sentry_list_issues', { limit: 5 });
-  const issues = Array.isArray(listResult.output.issues) ? listResult.output.issues : [];
-  const issue = issues[0] as JsonObject | undefined;
+  const listResult = await callTool('github_list_sentry_incident_issues', { limit: 5 });
+  const githubIssues = Array.isArray(listResult.output.issues) ? listResult.output.issues : [];
+  const watchDecisions = selectWatchableGitHubIssues(githubIssues as unknown as GitHubIssueSummary[]);
+  const acceptedIssue = watchDecisions.find((decision) => decision.accepted)?.issue;
 
   let decision: AgentDecision;
-  if (!issue) {
-    decision = { action: 'ignore', confidence: 0.9, reason: 'No unresolved production Sentry issues were found.' };
+  if (!acceptedIssue) {
+    decision = {
+      action: 'ignore',
+      confidence: 0.9,
+      reason: watchDecisions[0]?.reason ?? 'No eligible Sentry-created GitHub incident issues were found.',
+    };
   } else {
-    decision = await runDecisionPath({ issue, callTool, config: input.config });
+    decision = await runDecisionPath({ githubIssue: acceptedIssue as unknown as JsonObject, callTool, config: input.config, fixture });
   }
 
   const completed = Date.now();
@@ -120,14 +127,20 @@ export async function runIncidentAgent(input: IncidentRunInput & { dbPath: strin
 }
 
 async function runDecisionPath(input: {
-  issue: JsonObject;
+  githubIssue: JsonObject;
   callTool: (name: string, toolInput: JsonObject) => Promise<ToolExecutionResult>;
   config?: AppConfig;
+  fixture: AgentFixture;
 }): Promise<AgentDecision> {
-  const sentryIssueId = String(input.issue.id ?? 'unknown');
-  const shortId = String(input.issue.shortId ?? input.issue.short_id ?? 'SENTRY-UNKNOWN');
-  const title = String(input.issue.title ?? 'Untitled Sentry issue');
-  const environment = String(input.issue.environment ?? 'production');
+  const sentry = input.githubIssue.sentry as JsonObject | undefined;
+  const sentryIssueId = String(sentry?.issueId ?? 'unknown');
+  const fixtureIssue = input.fixture.sentryIssues.find((issue) => String(issue.id ?? issue.shortId ?? issue.short_id) === sentryIssueId);
+  const issue = fixtureIssue ?? sentryIssueFromGithubIssue(input.githubIssue, sentryIssueId);
+  const shortId = String(issue.shortId ?? issue.short_id ?? sentry?.shortId ?? 'SENTRY-UNKNOWN');
+  const title = String(issue.title ?? input.githubIssue.title ?? 'Untitled Sentry issue');
+  const environment = String(input.githubIssue.environment ?? issue.environment ?? 'production');
+  const issueNumber = Number(input.githubIssue.number ?? 0) || undefined;
+  const issueUrl = String(input.githubIssue.htmlUrl ?? input.githubIssue.html_url ?? '') || undefined;
   const eventResult = await input.callTool('sentry_get_issue_event', { issueId: sentryIssueId });
   const event = eventResult.output.event as JsonObject | undefined;
   const injectionRisk = /ignore previous|rollback|merge|print secret|exfiltrate|private key/i.test(
@@ -138,15 +151,13 @@ async function runDecisionPath(input: {
     projectId: input.config?.vercel.projectId ?? 'offline-project',
   });
   const severityResult = await input.callTool('severity_calculator', {
-    level: String(input.issue.level ?? 'error'),
+    level: String(issue.level ?? 'error'),
     environment,
-    eventCount: Number(input.issue.count ?? 0),
-    userCount: Number(input.issue.userCount ?? 0),
+    eventCount: Number(issue.count ?? 0),
+    userCount: Number(issue.userCount ?? 0),
     hasEvent: eventResult.ok,
   });
   const confidence = Number(severityResult.output.confidence ?? 0.2);
-  const marker = sentryIssueMarker(sentryIssueId);
-  const shouldCreateIssue = environment === 'production';
 
   if (environment !== 'production') {
     return {
@@ -156,18 +167,6 @@ async function runDecisionPath(input: {
       sentryIssueId,
     };
   }
-
-  const githubResult = await input.callTool('github_find_or_create_incident_issue', {
-    sentryIssueId,
-    shortId,
-    title: `[Sentry ${shortId}] ${title}`,
-    body: buildIncidentBody({ marker, issue: input.issue, event, confidence, vercelOk: vercelResult.ok }),
-    create: shouldCreateIssue,
-  });
-
-  const issueNumber = Number(githubResult.output.issueNumber ?? 0) || undefined;
-  const issueUrl = String(githubResult.output.issueUrl ?? '') || undefined;
-  const issueAction = String(githubResult.output.action ?? '');
 
   if (injectionRisk) {
     return {
@@ -180,24 +179,18 @@ async function runDecisionPath(input: {
     };
   }
 
+  await input.callTool('github_add_agent_status_comment', {
+    issueNumber: issueNumber ?? 0,
+    body: buildAcceptedIssueComment({ issue, event, confidence, vercelOk: vercelResult.ok }),
+  });
+
   if (!eventResult.ok || confidence < 0.75) {
     return {
-      action: eventResult.ok ? 'needs_human' : 'create_issue',
+      action: 'needs_human',
       confidence,
       reason: eventResult.ok
         ? 'Evidence is too weak for autonomous patching.'
-        : 'Sentry event details were unavailable, so the incident was recorded but patching needs a human.',
-      issueNumber,
-      issueUrl,
-      sentryIssueId,
-    };
-  }
-
-  if (issueAction === 'found_issue') {
-    return {
-      action: 'update_issue',
-      confidence,
-      reason: 'Existing GitHub incident issue found and updated with fresh evidence.',
+        : 'Sentry event details were unavailable from the linked GitHub issue, so patching needs a human.',
       issueNumber,
       issueUrl,
       sentryIssueId,
@@ -206,9 +199,9 @@ async function runDecisionPath(input: {
 
   if (input.config && !isActionAllowed(input.config.autopilot, 'trigger_claude') && !isActionAllowed(input.config.autopilot, 'trigger_agent')) {
     return {
-      action: 'create_issue',
+      action: 'update_issue',
       confidence,
-      reason: 'Incident issue was created, but policy does not allow Claude dispatch.',
+      reason: 'Existing incident issue was accepted, but policy does not allow Claude dispatch.',
       issueNumber,
       issueUrl,
       sentryIssueId,
@@ -234,33 +227,38 @@ async function runDecisionPath(input: {
   };
 }
 
-function buildIncidentBody(input: {
-  marker: string;
+function buildAcceptedIssueComment(input: {
   issue: JsonObject;
   event?: JsonObject;
   confidence: number;
   vercelOk: boolean;
 }): string {
   return [
-    input.marker,
+    '## Back To Service Status',
     '',
-    '## Production Error',
-    '',
-    `Sentry issue: ${String(input.issue.shortId ?? input.issue.short_id ?? 'unknown')}`,
-    `Title: ${String(input.issue.title ?? 'unknown')}`,
-    `Environment: ${String(input.issue.environment ?? 'unknown')}`,
-    `Events: ${String(input.issue.count ?? 'unknown')}`,
-    `Users affected: ${String(input.issue.userCount ?? 0)}`,
+    'Accepted this Sentry-created GitHub issue for diagnosis.',
     `Confidence: ${input.confidence}`,
     `Vercel context available: ${input.vercelOk}`,
+    `Sentry issue: ${String(input.issue.shortId ?? input.issue.short_id ?? input.issue.id ?? 'unknown')}`,
     '',
-    '## Agent Status',
-    '',
-    '- Intake: detected',
+    '- Intake: existing GitHub issue accepted',
     '- Diagnosis: pending',
     '- Patch: draft PR only',
     input.event ? `- Evidence event id: ${String(input.event.id ?? 'unknown')}` : '- Evidence event: unavailable',
   ].join('\n');
+}
+
+function sentryIssueFromGithubIssue(githubIssue: JsonObject, sentryIssueId: string): JsonObject {
+  const body = String(githubIssue.body ?? '');
+  return {
+    id: sentryIssueId,
+    shortId: (githubIssue.sentry as JsonObject | undefined)?.shortId ?? sentryIssueId,
+    title: String(githubIssue.title ?? 'Sentry-created GitHub issue'),
+    level: body.match(/\bLevel:\s*\*{0,2}([A-Za-z0-9_-]+)\*{0,2}/i)?.[1] ?? 'error',
+    count: Number(body.match(/\bEvents:\s*\*{0,2}(\d+)\*{0,2}/i)?.[1] ?? 5),
+    userCount: Number(body.match(/\bUsers affected:\s*\*{0,2}(\d+)\*{0,2}/i)?.[1] ?? 1),
+    environment: String(githubIssue.environment ?? 'production'),
+  };
 }
 
 async function executeWithFallback(tool: AgentTool, input: JsonObject, context: ToolExecutionContext): Promise<ToolExecutionResult> {
@@ -341,7 +339,23 @@ function defaultFixture(): AgentFixture {
         stack: [{ filename: 'src/main.tsx', function: 'boot' }],
       },
     },
-    githubIssues: [],
+    githubIssues: [
+      {
+        number: 1,
+        title: '[Sentry NODE-EXPRESS-3] Error: SENTRY_TEST_CRASH: intentional frontend boot failure',
+        body: [
+          sentryIssueMarker('offline-1'),
+          '',
+          'Sentry issue: NODE-EXPRESS-3',
+          'Environment: production',
+          'Events: 11',
+          'Users affected: 1',
+          'https://sentry.example/issues/offline-1',
+        ].join('\n'),
+        htmlUrl: 'https://github.example/issues/1',
+        labels: ['sentry', 'production'],
+      },
+    ],
     vercelDeployment: { uid: 'dpl_offline', state: 'READY', target: 'production' },
   };
 }

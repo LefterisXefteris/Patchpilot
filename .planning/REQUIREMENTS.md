@@ -16,16 +16,16 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Incident Intake
 
-- [ ] **INCD-01**: Agent receives or discovers production Sentry issues that need recovery action.
-- [ ] **INCD-02**: Agent fetches Sentry issue and event details including stack trace, release, tags, affected users, and permalink.
-- [ ] **INCD-03**: Agent ignores or downgrades non-production and low-signal issues according to policy.
-- [ ] **INCD-04**: Agent deduplicates repeated Sentry events into one active recovery workflow per Sentry issue.
+- [ ] **INCD-01**: Agent discovers existing Sentry-created GitHub issues that need recovery action.
+- [ ] **INCD-02**: Agent parses linked Sentry issue IDs, short IDs, or permalinks from GitHub issue title/body metadata.
+- [ ] **INCD-03**: Agent ignores or downgrades non-production, missing-evidence, and low-signal issues according to policy.
+- [ ] **INCD-04**: Agent deduplicates GitHub issue and Sentry issue pairs into one active recovery workflow.
 
 ### GitHub Issues
 
-- [ ] **GHI-01**: Agent creates a GitHub issue for a new production Sentry issue with severity, evidence, Sentry links, and current status.
-- [ ] **GHI-02**: Agent updates the existing GitHub issue as diagnosis, PR, deployment, verification, and fallback actions progress.
-- [ ] **GHI-03**: Agent applies stable labels for state, severity, source, confidence, and autopilot action.
+- [ ] **GHI-01**: Sentry's GitHub integration creates the first incident issue; Back To Service treats that as a prerequisite instead of duplicating it.
+- [ ] **GHI-02**: Agent updates the existing GitHub issue as intake acceptance, diagnosis, PR, deployment, verification, and fallback actions progress.
+- [ ] **GHI-03**: Agent recognizes stable labels/title/body patterns for state, severity, source, confidence, and autopilot action.
 - [ ] **GHI-04**: Agent records all autonomous decisions and actions as auditable GitHub issue comments.
 
 ### Diagnosis
@@ -85,6 +85,7 @@ Explicitly excluded. Documented to prevent scope creep.
 | ChatOps as the primary workflow | GitHub Issues is the requested and initial user-facing surface. |
 | Unbounded infrastructure mutation | Production recovery must use allowlisted actions only. |
 | Fully generic bug fixing | v1 targets production errors with concrete Sentry evidence. |
+| Agent-owned first issue creation | Sentry's GitHub integration already creates GitHub issues; the agent should begin from those issues by default. |
 
 ## Traceability
 

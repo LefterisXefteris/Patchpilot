@@ -10,6 +10,7 @@
     "test": "vitest run",
     "validate:config": "tsx src/index.ts validate-config",
     "agent:sync": "tsx src/index.ts agent:sync",
+    "agent:watch": "tsx src/index.ts agent:watch",
     "agent:run": "tsx src/index.ts agent:run",
     "agent:recover": "tsx src/index.ts agent:recover",
     "eval": "tsx src/index.ts eval",

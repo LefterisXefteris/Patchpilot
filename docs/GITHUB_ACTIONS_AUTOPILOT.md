@@ -6,13 +6,13 @@ Back To Service can run from GitHub Actions so it does not depend on a laptop.
 
 ```text
 GitHub schedule every 5 minutes
--> Back To Service polls Sentry
--> New Sentry production issue creates GitHub issue in target repo
+-> Sentry GitHub integration has already created GitHub issues in the target repo
+-> Back To Service watches eligible Sentry-created issues
 -> Target repo issue-opened workflow starts Claude
 -> Claude opens a draft PR
 ```
 
-GitHub Actions scheduled workflows are not a good fit for 2 minute polling. The workflow uses 5 minutes and keeps immediate repair through the target repo `issues.opened` trigger.
+GitHub Actions scheduled workflows are not a good fit for 2 minute polling. The workflow uses 5 minutes as a safety net around Sentry-created GitHub issues; immediate repair can still happen through the target repo `issues.opened` trigger.
 
 ## Back To Service Repo Setup
 
@@ -82,11 +82,10 @@ ANTHROPIC_API_KEY
 
 ## Existing Issues
 
-The schedule does not redispatch existing issues every run because that would spam Claude.
+The schedule should avoid repeatedly dispatching the same existing issue because that would spam Claude. Back To Service records accepted issues and uses GitHub issue comments as the visible audit trail.
 
 For a one-off retry, run the Back To Service workflow manually with:
 
 ```text
 redispatch=true
 ```
-

@@ -2,7 +2,7 @@
 
 ## What This Is
 
-Back To Service is an AI production recovery agent for teams using Sentry, GitHub, and Vercel. It watches production errors from Sentry, keeps the matching GitHub issue current, diagnoses the likely root cause, patches the repository, opens and manages a pull request, deploys the fix through the existing GitHub-to-Vercel flow, and verifies that production recovers.
+Back To Service is an AI production recovery agent for teams using Sentry, GitHub, and Vercel. It starts from Sentry-created GitHub issues, fetches linked Sentry evidence when needed, diagnoses the likely root cause, patches the target repository, opens and manages a pull request, follows the existing GitHub-to-Vercel deployment flow, and verifies that production recovers.
 
 The long-term ambition is full autopilot: when confidence is high and policy allows it, the agent can patch, merge, deploy, and recover production without waiting for a human. The initial stack target is Sentry + GitHub + Vercel.
 
@@ -18,8 +18,8 @@ Production errors should move from detection to verified recovery with as little
 
 ### Active
 
-- [ ] Detect production Sentry errors and decide whether they require recovery action.
-- [ ] Create or update GitHub issues with Sentry context, severity, affected users, logs, and agent status.
+- [ ] Watch Sentry-created GitHub issues and decide whether they require recovery action.
+- [ ] Add agent status and diagnosis updates to existing GitHub issues with Sentry context, severity, affected users, logs, and evidence.
 - [ ] Diagnose likely root cause by combining Sentry events, stack traces, Vercel deployments, commits, and repository context.
 - [ ] Prefer a patch-first recovery path: produce a code fix, run verification, open a pull request, merge when confidence and policy gates pass, and deploy through Vercel.
 - [ ] Use fallback recovery actions when patching is too risky, too slow, or fails verification: rollback, redeploy, or restart/recover supported infrastructure surfaces.
@@ -36,7 +36,7 @@ Production errors should move from detection to verified recovery with as little
 
 ## Context
 
-The user wants an AI agent that sees Sentry logs on GitHub issues and, if there is an error in production, "brings it back." The clarified behavior includes the whole recovery combo: triage GitHub issues, diagnose and open PRs, rollback or redeploy when needed, and recover infrastructure where supported.
+The user wants an AI agent that sees Sentry-created GitHub issues and, if there is an error in production, "brings it back." The clarified behavior avoids rebuilding Sentry/GitHub issue creation and focuses the agent on diagnosis, patch PRs, verification, fallback recovery, and later self-improvement PRs.
 
 The target product behavior is autopilot, not only advisory. The agent should act when confidence is high. The chosen recovery strategy is patch-first: diagnose the Sentry error, create and merge a fix PR, deploy it, and use rollback/redeploy/restart only when patching is unsafe, slow, or unsuccessful.
 
@@ -51,7 +51,7 @@ The initial ecosystem is:
 - **Tech stack**: Sentry + GitHub + Vercel first - these integrations define the v1 control plane.
 - **Safety**: Full autopilot must still be policy-driven - the agent needs confidence gates, allowlists, reversible actions, and a kill switch.
 - **Recovery order**: Patch-first for v1 - rollback/redeploy/restart are fallback actions, not the default first move.
-- **Source of truth**: GitHub Issues track incident state - the agent should avoid creating a parallel incident database as the primary user-facing workflow.
+- **Source of truth**: GitHub Issues track incident state - Sentry creates the first issue, and the agent comments/acts from that existing workflow.
 - **Production scope**: Production errors are the priority - staging and development noise should not trigger autonomous recovery.
 - **Auditability**: Every action must explain what evidence was used and why the action was allowed.
 
@@ -63,6 +63,7 @@ The initial ecosystem is:
 | Build toward full autopilot | User chose autopilot after considering guarded auto-recovery. | - Pending |
 | Use patch-first recovery | User chose patching before rollback, making code repair the core behavior. | - Pending |
 | Keep GitHub Issues as the visible incident record | User described Sentry logs on GitHub issues; this keeps the workflow where engineers already work. | - Pending |
+| Use Sentry's GitHub integration for first issue creation | Avoids wasting agent work on a workflow Sentry can already handle. | Accepted 2026-05-10 |
 | Require explicit safety policy despite autopilot | Production mutation needs confidence gates, audit logs, and emergency stop to be trustworthy. | - Pending |
 
 ## Evolution

@@ -5,24 +5,25 @@
 See: .planning/PROJECT.md (updated 2026-04-25)
 
 **Core value:** Production errors should move from detection to verified recovery with as little human intervention as safely possible.
-**Current focus:** Phase 1 - Integration Foundation
+**Current focus:** Phase 2 - GitHub Issue Watcher
 
 ## Current Milestone
 
 **Milestone:** v1 autonomous Sentry-to-recovery loop
 **Status:** Phase 1 complete
-**Next command:** `$gsd-plan-phase 2`
+**Next command:** Implement and harden GitHub issue watcher against live target-repo issue data.
 
 ## Phase Status
 
 | Phase | Name | Status | Progress |
 |-------|------|--------|----------|
 | 1 | Integration Foundation | Complete | 100% |
-| 2 | Incident Intake and Issue Sync | Pending | 0% |
+| 2 | GitHub Issue Watcher | In Progress | 35% |
 | 3 | Diagnosis Engine | Pending | 0% |
 | 4 | Patch PR Loop | Pending | 0% |
-| 5 | Autopilot Deploy and Recovery | Pending | 0% |
+| 5 | Verify and Recover | Pending | 0% |
 | 6 | Guardrails and Auditability | Pending | 0% |
+| 7 | Self-Evolution PRs | Pending | 0% |
 
 ## Active Decisions
 
@@ -30,6 +31,7 @@ See: .planning/PROJECT.md (updated 2026-04-25)
 - Build toward full autopilot.
 - Use patch-first recovery, with rollback/redeploy/restart as fallbacks.
 - Use GitHub Issues as the visible incident record.
+- Rely on Sentry's GitHub integration to create first incident issues; Back To Service watches and acts on eligible existing issues.
 - Enforce explicit safety policy and auditability before autonomous production mutation.
 
 ## Notes
@@ -38,3 +40,4 @@ See: .planning/PROJECT.md (updated 2026-04-25)
 - The previous `gsd-sdk query` interface was unavailable in this environment, so planning artifacts were created directly from the GSD workflow templates.
 - Phase 1 planning completed on 2026-04-25 with 3 plans across 3 waves. Plan checker found 0 blockers and 2 accepted scope warnings.
 - Phase 1 execution completed on 2026-04-25. Verification passed: typecheck, lint, tests, build, and safe invalid-config CLI behavior.
+- On 2026-05-10, the roadmap was revised to avoid duplicating Sentry/GitHub issue creation. The default agent entrypoint is now GitHub issue watching; Sentry polling remains a legacy/fallback command.

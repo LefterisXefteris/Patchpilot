@@ -2,7 +2,7 @@
 
 Back To Service is an AI production recovery agent for a configured target app.
 
-It watches Sentry production errors, records each incident in the target GitHub repo, triggers a Claude Code repair workflow, and verifies whether production recovered through Vercel, HTTP health checks, and Sentry quieting.
+It watches Sentry-created GitHub issues in the target repo, fetches linked Sentry evidence when needed, triggers a Claude Code repair workflow, and verifies whether production recovered through Vercel, HTTP health checks, and Sentry quieting.
 
 This repo is the **agent/control plane**. It does not fix itself. The broken application is a separate target repo.
 
@@ -20,8 +20,8 @@ Current live flow:
 
 ```text
 Sentry production error
--> Back To Service polls Sentry
--> Back To Service creates or updates a GitHub issue in the target repo
+-> Sentry GitHub integration creates a GitHub issue in the target repo
+-> Back To Service watches eligible Sentry-created GitHub issues
 -> Back To Service dispatches the target repo Claude workflow
 -> Claude Code investigates the target repo and proposes a patch
 -> Claude opens or updates a draft PR/branch
@@ -36,7 +36,8 @@ The system has already handled real incidents in `snapsyncai`, including a front
 
 This is a guarded production recovery agent, not a reckless full-autopilot deploy bot.
 
-- It creates and updates incident issues automatically.
+- It expects Sentry to create the first incident issue.
+- It updates accepted incident issues automatically.
 - It can trigger Claude Code automatically.
 - Claude can inspect, edit, test, build, and open a draft PR in the target repo.
 - Back To Service can verify recovery and close recovered incident issues.
@@ -52,7 +53,8 @@ Back To Service uses meaningful typed tools around real production systems:
 
 | Tool | Purpose |
 |---|---|
-| `sentry_list_issues` | Find unresolved production Sentry issues. |
+| `github_list_sentry_incident_issues` | Find existing GitHub issues with Sentry evidence. |
+| `sentry_list_issues` | Legacy fallback for unresolved production Sentry polling. |
 | `sentry_get_issue_event` | Fetch event evidence for diagnosis/evals. |
 | `github_find_or_create_incident_issue` | Deduplicate and record incidents in GitHub Issues. |
 | `github_repository_dispatch_claude` | Trigger Claude Code in the target repo. |
@@ -81,7 +83,14 @@ Validate provider access:
 npm run validate:config
 ```
 
-Poll Sentry and sync incidents to GitHub Issues:
+Watch existing Sentry-created GitHub Issues:
+
+```bash
+npm run agent:watch -- --limit 5
+npm run agent:watch -- --apply --limit 5
+```
+
+Legacy fallback: poll Sentry and sync incidents to GitHub Issues:
 
 ```bash
 npm run agent:sync -- --limit 5
@@ -137,7 +146,7 @@ How this project maps:
 
 | Requirement | Status | Implementation |
 |---|---:|---|
-| Real agent loop | Yes | `agent:sync`, `agent:run`, and `agent:recover` implement incident intake, tool loop, repair dispatch, and verification. |
+| Real agent loop | Yes | `agent:watch`, `agent:run`, and `agent:recover` implement GitHub issue intake, tool loop, repair dispatch, and verification. |
 | Multiple tools `>=3` | Yes | Sentry, GitHub Issues, GitHub dispatch, Vercel, severity calculator, health check, Sentry quieting. |
 | State | Yes | SQLite state in `src/state/sqlite-store.ts` stores incidents, runs, tool calls, decisions, metrics, eval results, and recovery attempts. |
 | Error handling | Yes | Structured error codes, dry-run mode, redaction, fallback decisions, retry/wait/escalate/close recovery policy. |
@@ -160,7 +169,7 @@ The eval harness is offline by default. It does not require real Sentry, GitHub,
 It covers adversarial and operational scenarios such as:
 
 - Non-production Sentry issue should not trigger repair.
-- Duplicate Sentry issue should update an existing GitHub issue.
+- Existing Sentry-created GitHub issue should be accepted without creating another issue.
 - Missing Sentry event falls back to issue creation / human review.
 - Secret-like values in payloads are redacted.
 - Vercel API failure does not crash the run.
@@ -186,7 +195,8 @@ npm run ui
 
 Required local/provider configuration:
 
-- Sentry token, org slug, project slug, environment, and region URL.
+- Sentry GitHub integration configured in the target repo to create incident issues.
+- Sentry token, org slug, project slug, environment, and region URL for evidence lookup.
 - GitHub App ID, private key, installation ID, agent repo, and target repo.
 - Vercel token, team ID, agent project ID, and target Vercel project ID.
 - Target production URL for recovery verification.
@@ -315,4 +325,3 @@ The short version:
 - Sentry source-map/release-to-commit correlation is future work.
 - Cost tracking is estimated, not provider-billed.
 - GitHub Actions SQLite state is ephemeral unless external persistence is added.
-
