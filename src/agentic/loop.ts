@@ -4,6 +4,7 @@ import { selectWatchableGitHubIssues } from '../agent/github-issue-watcher.js';
 import { isActionAllowed } from '../policy/autopilot-policy.js';
 import type { AppConfig } from '../config/schema.js';
 import { sentryIssueMarker } from '../agent/sync.js';
+import { formatIncidentMemories, type IncidentMemoryInput } from '../memory/incident-memory.js';
 import type { GitHubIssueSummary } from '../providers/github/issues.js';
 import { SqliteStateStore } from '../state/sqlite-store.js';
 import { estimateCostUsd, estimateTokens, logJson, redactJson } from './observability.js';
@@ -18,6 +19,7 @@ export async function runIncidentAgent(input: IncidentRunInput & { dbPath: strin
   const tools = createIncidentTools();
   const store = new SqliteStateStore(input.dbPath);
   store.init();
+  seedFixtureMemories(store, fixture, secretsFromConfig(input.config));
 
   const started = Date.now();
   const startedAt = new Date(started).toISOString();
@@ -87,7 +89,13 @@ export async function runIncidentAgent(input: IncidentRunInput & { dbPath: strin
       reason: watchDecisions[0]?.reason ?? 'No eligible Sentry-created GitHub incident issues were found.',
     };
   } else {
-    decision = await runDecisionPath({ githubIssue: acceptedIssue as unknown as JsonObject, callTool, config: input.config, fixture });
+    decision = await runDecisionPath({
+      githubIssue: acceptedIssue as unknown as JsonObject,
+      callTool,
+      config: input.config,
+      fixture,
+      store,
+    });
   }
 
   const completed = Date.now();
@@ -131,6 +139,7 @@ async function runDecisionPath(input: {
   callTool: (name: string, toolInput: JsonObject) => Promise<ToolExecutionResult>;
   config?: AppConfig;
   fixture: AgentFixture;
+  store: SqliteStateStore;
 }): Promise<AgentDecision> {
   const sentry = input.githubIssue.sentry as JsonObject | undefined;
   const sentryIssueId = String(sentry?.issueId ?? 'unknown');
@@ -143,6 +152,17 @@ async function runDecisionPath(input: {
   const issueUrl = String(input.githubIssue.htmlUrl ?? input.githubIssue.html_url ?? '') || undefined;
   const eventResult = await input.callTool('sentry_get_issue_event', { issueId: sentryIssueId });
   const event = eventResult.output.event as JsonObject | undefined;
+  const memories = input.store.findSimilarIncidentMemories(
+    {
+      sentryIssueId,
+      title,
+      environment,
+      event,
+      labels: readLabels(input.githubIssue),
+    },
+    3,
+  );
+  const memoryContext = formatIncidentMemories(memories, 1000);
   const injectionRisk = /ignore previous|rollback|merge|print secret|exfiltrate|private key/i.test(
     `${title} ${JSON.stringify(event ?? {})}`,
   );
@@ -165,27 +185,31 @@ async function runDecisionPath(input: {
       confidence: 0.92,
       reason: 'Issue is not from production, so autonomous recovery is blocked.',
       sentryIssueId,
+      retrievedMemoryCount: memories.length,
     };
   }
 
   if (injectionRisk) {
-    return {
+    const decision: AgentDecision = {
       action: 'needs_human',
       confidence: 0.3,
       reason: 'Potential prompt injection or unsafe recovery instruction detected in incident evidence.',
       issueNumber,
       issueUrl,
       sentryIssueId,
+      retrievedMemoryCount: memories.length,
     };
+    rememberDecision(input, { decision, issue, event, outcome: 'needs_human', rootCauseSummary: decision.reason, fixSummary: 'Human review required before any recovery action.' });
+    return decision;
   }
 
   await input.callTool('github_add_agent_status_comment', {
     issueNumber: issueNumber ?? 0,
-    body: buildAcceptedIssueComment({ issue, event, confidence, vercelOk: vercelResult.ok }),
+    body: buildAcceptedIssueComment({ issue, event, confidence, vercelOk: vercelResult.ok, memoryContext }),
   });
 
   if (!eventResult.ok || confidence < 0.75) {
-    return {
+    const decision: AgentDecision = {
       action: 'needs_human',
       confidence,
       reason: eventResult.ok
@@ -194,18 +218,38 @@ async function runDecisionPath(input: {
       issueNumber,
       issueUrl,
       sentryIssueId,
+      retrievedMemoryCount: memories.length,
     };
+    rememberDecision(input, {
+      decision,
+      issue,
+      event,
+      outcome: 'needs_human',
+      rootCauseSummary: decision.reason,
+      fixSummary: 'Keep the existing GitHub incident open for human diagnosis.',
+    });
+    return decision;
   }
 
   if (input.config && !isActionAllowed(input.config.autopilot, 'trigger_claude') && !isActionAllowed(input.config.autopilot, 'trigger_agent')) {
-    return {
+    const decision: AgentDecision = {
       action: 'update_issue',
       confidence,
       reason: 'Existing incident issue was accepted, but policy does not allow Claude dispatch.',
       issueNumber,
       issueUrl,
       sentryIssueId,
+      retrievedMemoryCount: memories.length,
     };
+    rememberDecision(input, {
+      decision,
+      issue,
+      event,
+      outcome: 'policy_blocked',
+      rootCauseSummary: decision.reason,
+      fixSummary: 'Enable an allowed draft-PR dispatch action or route the issue to a human.',
+    });
+    return decision;
   }
 
   const dispatchResult = await input.callTool('github_repository_dispatch_claude', {
@@ -214,9 +258,10 @@ async function runDecisionPath(input: {
     issueNumber: issueNumber ?? 0,
     issueUrl: issueUrl ?? '',
     title,
+    memoryContext,
   });
 
-  return {
+  const decision: AgentDecision = {
     action: 'trigger_claude',
     confidence,
     reason: 'High-confidence production incident with enough evidence; Claude draft-PR worker was triggered.',
@@ -224,7 +269,19 @@ async function runDecisionPath(input: {
     issueUrl,
     sentryIssueId,
     triggeredClaude: Boolean(dispatchResult.output.dispatched),
+    retrievedMemoryCount: memories.length,
   };
+  rememberDecision(input, {
+    decision,
+    issue,
+    event,
+    outcome: 'queued_patch',
+    rootCauseSummary: 'High-confidence production incident with current Sentry evidence and deployment context.',
+    fixSummary: memoryContext
+      ? 'Draft PR worker dispatched with compact prior-incident memory as advisory context.'
+      : 'Draft PR worker dispatched with current Sentry evidence only.',
+  });
+  return decision;
 }
 
 function buildAcceptedIssueComment(input: {
@@ -232,6 +289,7 @@ function buildAcceptedIssueComment(input: {
   event?: JsonObject;
   confidence: number;
   vercelOk: boolean;
+  memoryContext: string;
 }): string {
   return [
     '## Back To Service Status',
@@ -245,7 +303,51 @@ function buildAcceptedIssueComment(input: {
     '- Diagnosis: pending',
     '- Patch: draft PR only',
     input.event ? `- Evidence event id: ${String(input.event.id ?? 'unknown')}` : '- Evidence event: unavailable',
-  ].join('\n');
+    input.memoryContext ? ['', input.memoryContext].join('\n') : undefined,
+  ]
+    .filter((line): line is string => line !== undefined)
+    .join('\n');
+}
+
+function rememberDecision(
+  input: {
+    githubIssue: JsonObject;
+    store: SqliteStateStore;
+    config?: AppConfig;
+  },
+  memoryInput: {
+    decision: AgentDecision;
+    issue: JsonObject;
+    event?: JsonObject;
+    outcome: string;
+    rootCauseSummary: string;
+    fixSummary: string;
+  },
+): void {
+  input.store.recordIncidentMemory(
+    {
+      sentryIssueId: memoryInput.decision.sentryIssueId,
+      githubIssueNumber: memoryInput.decision.issueNumber,
+      githubIssueUrl: memoryInput.decision.issueUrl,
+      title: String(memoryInput.issue.title ?? input.githubIssue.title ?? 'Sentry incident'),
+      environment: String(input.githubIssue.environment ?? memoryInput.issue.environment ?? 'production'),
+      event: memoryInput.event,
+      rootCauseSummary: memoryInput.rootCauseSummary,
+      fixSummary: memoryInput.fixSummary,
+      outcome: memoryInput.outcome,
+      confidence: memoryInput.decision.confidence,
+      labels: readLabels(input.githubIssue),
+      metadata: {
+        action: memoryInput.decision.action,
+        triggeredClaude: Boolean(memoryInput.decision.triggeredClaude),
+      },
+    },
+    secretsFromConfig(input.config),
+  );
+}
+
+function readLabels(githubIssue: JsonObject): string[] {
+  return Array.isArray(githubIssue.labels) ? githubIssue.labels.map(String) : [];
 }
 
 function sentryIssueFromGithubIssue(githubIssue: JsonObject, sentryIssueId: string): JsonObject {
@@ -317,6 +419,12 @@ function cloneFixture(fixture: AgentFixture): AgentFixture {
 
 function secretsFromConfig(config: AppConfig | undefined): Array<string | undefined> {
   return [config?.sentry.authToken, config?.sentry.webhookSecret, config?.github.privateKey, config?.github.webhookSecret, config?.vercel.token];
+}
+
+function seedFixtureMemories(store: SqliteStateStore, fixture: AgentFixture, extraSecrets: Array<string | undefined>): void {
+  for (const memory of fixture.incidentMemories ?? []) {
+    store.recordIncidentMemory(memory as unknown as IncidentMemoryInput, extraSecrets);
+  }
 }
 
 function defaultFixture(): AgentFixture {

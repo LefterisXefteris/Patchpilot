@@ -3,6 +3,14 @@ import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 import type { AgentDecision, AgentMetrics, JsonValue } from '../agentic/types.js';
+import {
+  buildIncidentMemory,
+  buildIncidentMemoryQuery,
+  scoreIncidentMemory,
+  type IncidentMemoryInput,
+  type IncidentMemoryQuery,
+  type IncidentMemoryRecord,
+} from '../memory/incident-memory.js';
 import type { RecoveryAttemptRecord } from '../recovery/types.js';
 import type { VerificationResult } from '../verification/types.js';
 
@@ -106,7 +114,69 @@ export class SqliteStateStore {
       );
       CREATE INDEX IF NOT EXISTS idx_recovery_attempts_incident
         ON recovery_attempts (incident_id, id);
+      CREATE TABLE IF NOT EXISTS incident_memory (
+        id TEXT PRIMARY KEY,
+        sentry_issue_id TEXT,
+        github_issue_number INTEGER,
+        github_issue_url TEXT,
+        title TEXT NOT NULL,
+        environment TEXT NOT NULL,
+        stack_signature TEXT NOT NULL,
+        fingerprint TEXT NOT NULL UNIQUE,
+        root_cause_summary TEXT NOT NULL,
+        fix_summary TEXT NOT NULL,
+        outcome TEXT NOT NULL,
+        confidence REAL NOT NULL,
+        labels_json TEXT NOT NULL,
+        metadata_json TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_incident_memory_sentry
+        ON incident_memory (sentry_issue_id);
+      CREATE INDEX IF NOT EXISTS idx_incident_memory_fingerprint
+        ON incident_memory (fingerprint);
     `);
+  }
+
+  recordIncidentMemory(input: IncidentMemoryInput, extraSecrets: Array<string | undefined> = []): IncidentMemoryRecord {
+    const memory = buildIncidentMemory(input, extraSecrets);
+    const now = new Date().toISOString();
+    this.exec(`
+      INSERT INTO incident_memory
+        (id, sentry_issue_id, github_issue_number, github_issue_url, title, environment, stack_signature, fingerprint,
+         root_cause_summary, fix_summary, outcome, confidence, labels_json, metadata_json, created_at, updated_at)
+      VALUES
+        (${q(memory.id)}, ${q(memory.sentryIssueId)}, ${memory.githubIssueNumber ?? 'NULL'}, ${q(memory.githubIssueUrl)},
+         ${q(memory.title)}, ${q(memory.environment)}, ${q(memory.stackSignature)}, ${q(memory.fingerprint)},
+         ${q(memory.rootCauseSummary)}, ${q(memory.fixSummary)}, ${q(memory.outcome)}, ${memory.confidence},
+         ${q(memory.labels)}, ${q(memory.metadata)}, ${q(now)}, ${q(now)})
+      ON CONFLICT(fingerprint) DO UPDATE SET
+        sentry_issue_id = excluded.sentry_issue_id,
+        github_issue_number = excluded.github_issue_number,
+        github_issue_url = excluded.github_issue_url,
+        title = excluded.title,
+        environment = excluded.environment,
+        stack_signature = excluded.stack_signature,
+        root_cause_summary = excluded.root_cause_summary,
+        fix_summary = excluded.fix_summary,
+        outcome = excluded.outcome,
+        confidence = excluded.confidence,
+        labels_json = excluded.labels_json,
+        metadata_json = excluded.metadata_json,
+        updated_at = excluded.updated_at;
+    `);
+    return memory;
+  }
+
+  findSimilarIncidentMemories(query: IncidentMemoryQuery, limit = 3): IncidentMemoryRecord[] {
+    const enrichedQuery = buildIncidentMemoryQuery(query);
+    return this.listIncidentMemories()
+      .map((memory) => ({ memory, score: scoreIncidentMemory(memory, enrichedQuery) }))
+      .filter((item) => item.score > 0)
+      .sort((left, right) => right.score - left.score || right.memory.confidence - left.memory.confidence)
+      .slice(0, limit)
+      .map((item) => item.memory);
   }
 
   recordRecoveryAttempt(record: RecoveryAttemptRecord, verification: VerificationResult): void {
@@ -215,6 +285,41 @@ export class SqliteStateStore {
   private exec(sql: string): void {
     execFileSync('sqlite3', [this.dbPath, sql], { stdio: 'pipe' });
   }
+
+  private listIncidentMemories(): IncidentMemoryRecord[] {
+    const sql = `SELECT id, sentry_issue_id, github_issue_number, github_issue_url, title, environment, stack_signature, fingerprint,
+      root_cause_summary, fix_summary, outcome, confidence, labels_json, metadata_json, created_at, updated_at
+      FROM incident_memory;`;
+    const out = execFileSync('sqlite3', ['-separator', '\t', this.dbPath, sql], { stdio: ['ignore', 'pipe', 'pipe'] })
+      .toString()
+      .trim();
+    if (!out) {
+      return [];
+    }
+
+    return out
+      .split('\n')
+      .map((line) => line.split('\t'))
+      .filter((cols) => cols.length >= 16)
+      .map((cols) => ({
+        id: cols[0] ?? '',
+        sentryIssueId: cols[1] || undefined,
+        githubIssueNumber: cols[2] ? Number(cols[2]) : undefined,
+        githubIssueUrl: cols[3] || undefined,
+        title: cols[4] ?? '',
+        environment: cols[5] ?? 'production',
+        stackSignature: cols[6] ?? 'no-stack',
+        fingerprint: cols[7] ?? '',
+        rootCauseSummary: cols[8] ?? '',
+        fixSummary: cols[9] ?? '',
+        outcome: cols[10] ?? '',
+        confidence: Number(cols[11] ?? 0),
+        labels: parseJsonArray(cols[12]),
+        metadata: parseJsonObject(cols[13]),
+        createdAt: cols[14],
+        updatedAt: cols[15],
+      }));
+  }
 }
 
 function q(value: unknown): string {
@@ -224,4 +329,22 @@ function q(value: unknown): string {
 
   const serialized = typeof value === 'string' ? value : JSON.stringify(value);
   return `'${serialized.replaceAll("'", "''")}'`;
+}
+
+function parseJsonArray(value: string | undefined): string[] {
+  try {
+    const parsed = JSON.parse(value ?? '[]') as unknown;
+    return Array.isArray(parsed) ? parsed.map(String) : [];
+  } catch {
+    return [];
+  }
+}
+
+function parseJsonObject(value: string | undefined): Record<string, JsonValue> {
+  try {
+    const parsed = JSON.parse(value ?? '{}') as unknown;
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as Record<string, JsonValue>) : {};
+  } catch {
+    return {};
+  }
 }

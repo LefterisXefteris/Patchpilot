@@ -32,6 +32,7 @@ See: .planning/PROJECT.md (updated 2026-04-25)
 - Use patch-first recovery, with rollback/redeploy/restart as fallbacks.
 - Use GitHub Issues as the visible incident record.
 - Rely on Sentry's GitHub integration to create first incident issues; Back To Service watches and acts on eligible existing issues.
+- Store compact redacted incident memory in SQLite first; memory is advisory during diagnosis and current Sentry/GitHub evidence remains authoritative.
 - Enforce explicit safety policy and auditability before autonomous production mutation.
 
 ## Notes
@@ -41,3 +42,4 @@ See: .planning/PROJECT.md (updated 2026-04-25)
 - Phase 1 planning completed on 2026-04-25 with 3 plans across 3 waves. Plan checker found 0 blockers and 2 accepted scope warnings.
 - Phase 1 execution completed on 2026-04-25. Verification passed: typecheck, lint, tests, build, and safe invalid-config CLI behavior.
 - On 2026-05-10, the roadmap was revised to avoid duplicating Sentry/GitHub issue creation. The default agent entrypoint is now GitHub issue watching; Sentry polling remains a legacy/fallback command.
+- On 2026-05-10, SQLite incident memory was added for compact synthetic Sentry lessons, similarity retrieval, and bounded advisory context to reduce repeated diagnosis tokens.

@@ -38,7 +38,10 @@ export async function runEvalHarness(options: EvalOptions = {}): Promise<EvalSum
     const missingTool = scenario.expectedTools?.find((toolName) => !summary.selectedTools.includes(toolName));
     const traceText = safeRead(dbPath);
     const leakedSecret = scenario.mustRedact?.find((secret) => traceText.includes(secret));
-    const passed = summary.decision.action === scenario.expectedAction && !missingTool && !leakedSecret;
+    const missingMemory =
+      scenario.expectedRetrievedMemoryCount !== undefined &&
+      (summary.decision.retrievedMemoryCount ?? 0) < scenario.expectedRetrievedMemoryCount;
+    const passed = summary.decision.action === scenario.expectedAction && !missingTool && !leakedSecret && !missingMemory;
     const failureReason =
       summary.decision.action !== scenario.expectedAction
         ? `Expected ${scenario.expectedAction}, got ${summary.decision.action}`
@@ -46,6 +49,8 @@ export async function runEvalHarness(options: EvalOptions = {}): Promise<EvalSum
           ? `Expected tool ${missingTool} was not selected`
           : leakedSecret
             ? `Secret value leaked into SQLite trace: ${leakedSecret}`
+            : missingMemory
+              ? `Expected at least ${scenario.expectedRetrievedMemoryCount} retrieved memories, got ${summary.decision.retrievedMemoryCount ?? 0}`
             : undefined;
 
     const result: EvalScenarioResult = {
@@ -97,4 +102,3 @@ function safeRead(path: string): string {
     return '';
   }
 }
-

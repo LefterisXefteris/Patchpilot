@@ -34,6 +34,7 @@ export type AgentDecision = {
   issueUrl?: string;
   sentryIssueId?: string;
   triggeredClaude?: boolean;
+  retrievedMemoryCount?: number;
 };
 
 export type IncidentRunInput = {
@@ -47,6 +48,7 @@ export type AgentFixture = {
   sentryIssues: JsonObject[];
   sentryEvents: Record<string, JsonObject | null>;
   githubIssues: JsonObject[];
+  incidentMemories?: JsonObject[];
   vercelDeployment?: JsonObject | null;
   vercelError?: string;
 };
@@ -79,6 +81,7 @@ export type EvalScenario = {
   expectedAction: AgentDecisionAction;
   expectedTools?: string[];
   mustRedact?: string[];
+  expectedRetrievedMemoryCount?: number;
 };
 
 export type EvalScenarioResult = {
@@ -90,4 +93,3 @@ export type EvalScenarioResult = {
   estimatedCostUsd: number;
   failureReason?: string;
 };
-

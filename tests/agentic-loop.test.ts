@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -61,6 +62,63 @@ describe('runIncidentAgent', () => {
 
     expect(summary.decision.action).toBe('needs_human');
     expect(summary.selectedTools).not.toContain('github_repository_dispatch_claude');
+    vi.restoreAllMocks();
+  });
+
+  it('retrieves compact incident memory while still fetching current Sentry evidence', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const dbPath = join(mkdtempSync(join(tmpdir(), 'bts-agent-test-')), 'state.sqlite');
+
+    const summary = await runIncidentAgent({
+      dbPath,
+      fixture: {
+        name: 'memory-test',
+        sentryIssues: [
+          {
+            id: 'memory-current',
+            shortId: 'NODE-MEMORY',
+            title: 'TypeError: Cannot read properties of undefined during boot',
+            level: 'error',
+            count: 11,
+            userCount: 3,
+            environment: 'production',
+          },
+        ],
+        sentryEvents: {
+          'memory-current': { id: 'event-memory-current', stack: [{ filename: 'src/main.tsx', function: 'boot' }] },
+        },
+        githubIssues: [
+          {
+            number: 22,
+            title: '[Sentry NODE-MEMORY] TypeError: Cannot read properties of undefined during boot',
+            body: `${sentryIssueMarker('memory-current')}\nEnvironment: production\nEvents: 11\nUsers affected: 3`,
+            labels: ['sentry', 'production'],
+            htmlUrl: 'https://github.example/issues/22',
+          },
+        ],
+        incidentMemories: [
+          {
+            sentryIssueId: 'memory-prior',
+            title: 'TypeError: Cannot read properties of undefined during boot',
+            environment: 'production',
+            event: { stack: [{ filename: 'src/main.tsx', function: 'boot' }] },
+            rootCauseSummary: 'runtimeConfig was missing during frontend boot.',
+            fixSummary: 'Guard runtimeConfig access and provide fallback values.',
+            outcome: 'recovered',
+            confidence: 0.91,
+          },
+        ],
+        vercelDeployment: { uid: 'dpl_memory', state: 'READY', target: 'production' },
+      },
+      dryRun: true,
+    });
+    const trace = execFileSync('sqlite3', [dbPath, "SELECT input_json FROM tool_calls WHERE name = 'github_repository_dispatch_claude';"]).toString();
+
+    expect(summary.decision.action).toBe('trigger_claude');
+    expect(summary.decision.retrievedMemoryCount).toBeGreaterThanOrEqual(1);
+    expect(summary.selectedTools).toContain('sentry_get_issue_event');
+    expect(trace).toContain('Relevant prior incidents');
+    expect(trace).toContain('runtimeConfig was missing');
     vi.restoreAllMocks();
   });
 });

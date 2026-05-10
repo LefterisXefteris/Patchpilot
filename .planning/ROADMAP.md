@@ -46,13 +46,14 @@ This avoids spending agent effort on workflows Sentry and GitHub already cover.
 
 ### Phase 3: Diagnosis Engine
 
-**Goal:** Produce evidence-backed root-cause hypotheses and patch plans from linked Sentry and deployment context.
+**Goal:** Produce evidence-backed root-cause hypotheses and patch plans from linked Sentry, compact prior incident memory, and deployment context.
 
 **Success Criteria:**
 1. The agent fetches Sentry issue/event details from the linked GitHub issue.
-2. It identifies likely repository files and commits from stack frames and release metadata.
-3. It correlates incidents to active or recent Vercel production deployments.
-4. It comments diagnosis, confidence, affected surface, and a concrete patch plan on the existing issue.
+2. It retrieves only compact, redacted prior incident lessons from SQLite as advisory context.
+3. It identifies likely repository files and commits from stack frames and release metadata.
+4. It correlates incidents to active or recent Vercel production deployments.
+5. It comments diagnosis, confidence, affected surface, and a concrete patch plan on the existing issue.
 
 ### Phase 4: Patch PR Loop
 

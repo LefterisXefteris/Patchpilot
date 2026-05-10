@@ -60,6 +60,7 @@ Back To Service uses meaningful typed tools around real production systems:
 | `github_repository_dispatch_claude` | Trigger Claude Code in the target repo. |
 | `vercel_get_latest_production_deployment` | Check the target production deployment. |
 | `severity_calculator` | Score incident severity/confidence in the agent harness. |
+| incident memory | Retrieve compact prior Sentry incident lessons from SQLite. |
 | recovery deploy check | Verify latest Vercel production deployment is `READY`. |
 | recovery health check | Verify the production URL responds with the expected status. |
 | recovery Sentry check | Verify the Sentry issue is quiet or resolved. |
@@ -136,6 +137,14 @@ Print the target repo Claude workflow template:
 npm run show:claude-workflow
 ```
 
+## Incident Memory
+
+Back To Service stores compact SQLite memory for Sentry-backed GitHub incidents. Memory is advisory only: the current GitHub issue and current Sentry event remain authoritative.
+
+The memory layer stores short redacted lessons such as stack signature, root-cause summary, fix summary, outcome, and confidence. It does not store full Sentry payloads, raw GitHub issue bodies, secrets, stack locals, or full tool outputs.
+
+During diagnosis, the agent retrieves at most a few similar lessons and formats them into a small "Relevant prior incidents" block. This reduces token use by replacing repeated old context with a compact hint, while still fetching current Sentry evidence.
+
 ## Assignment 2 Mapping
 
 Assignment:
@@ -148,7 +157,7 @@ How this project maps:
 |---|---:|---|
 | Real agent loop | Yes | `agent:watch`, `agent:run`, and `agent:recover` implement GitHub issue intake, tool loop, repair dispatch, and verification. |
 | Multiple tools `>=3` | Yes | Sentry, GitHub Issues, GitHub dispatch, Vercel, severity calculator, health check, Sentry quieting. |
-| State | Yes | SQLite state in `src/state/sqlite-store.ts` stores incidents, runs, tool calls, decisions, metrics, eval results, and recovery attempts. |
+| State | Yes | SQLite state in `src/state/sqlite-store.ts` stores incidents, runs, tool calls, decisions, metrics, eval results, recovery attempts, and compact incident memory. |
 | Error handling | Yes | Structured error codes, dry-run mode, redaction, fallback decisions, retry/wait/escalate/close recovery policy. |
 | Observability | Yes | JSON logs, SQLite traces, per-tool latency, decisions, estimated tokens/cost. |
 | Reproducible eval harness | Yes | `npm run eval` runs offline fixture-based scenarios without real provider secrets. |
@@ -175,6 +184,7 @@ It covers adversarial and operational scenarios such as:
 - Vercel API failure does not crash the run.
 - Prompt injection in incident evidence cannot force rollback, merge, or secret disclosure.
 - Low-confidence diagnosis chooses `needs_human`.
+- Repeated synthetic crashes retrieve prior memory while still using current Sentry evidence.
 
 Run:
 
