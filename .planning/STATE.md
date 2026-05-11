@@ -43,3 +43,4 @@ See: .planning/PROJECT.md (updated 2026-04-25)
 - Phase 1 execution completed on 2026-04-25. Verification passed: typecheck, lint, tests, build, and safe invalid-config CLI behavior.
 - On 2026-05-10, the roadmap was revised to avoid duplicating Sentry/GitHub issue creation. The default agent entrypoint is now GitHub issue watching; Sentry polling remains a legacy/fallback command.
 - On 2026-05-10, SQLite incident memory was added for compact synthetic Sentry lessons, similarity retrieval, and bounded advisory context to reduce repeated diagnosis tokens.
+- On 2026-05-11, OpenAI Codex was added as an alternate target-repo repair worker through `BTS_REPAIR_PROVIDER=codex`, alongside the existing Claude workflow.

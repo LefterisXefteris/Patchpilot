@@ -16,6 +16,7 @@ export const recoveryActions = [
 ] as const;
 
 export const RecoveryActionSchema = z.enum(recoveryActions);
+export const RepairProviderSchema = z.enum(['claude', 'codex']);
 
 const optionalString = z.preprocess(
   (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
@@ -73,6 +74,11 @@ export const AppConfigSchema = z.object({
     needsHumanLabel: z.string().default('needs-human'),
     resolvedLabel: z.string().default('auto-recovery-resolved'),
   }),
+  repair: z
+    .object({
+      provider: RepairProviderSchema.default('claude'),
+    })
+    .default({ provider: 'claude' }),
   autopilot: z.object({
     enabled: z.boolean().default(false),
     dryRun: z.boolean().default(true),
@@ -91,3 +97,4 @@ export const AppConfigSchema = z.object({
 
 export type AppConfig = z.infer<typeof AppConfigSchema>;
 export type RecoveryAction = z.infer<typeof RecoveryActionSchema>;
+export type RepairProvider = z.infer<typeof RepairProviderSchema>;

@@ -44,6 +44,7 @@ export const validEnv = {
   BTS_TARGET_VERCEL_PROJECT_ID: '',
   BTS_TARGET_VERCEL_TEAM_ID: '',
   BTS_TARGET_SENTRY_PROJECT_SLUG: '',
+  BTS_REPAIR_PROVIDER: 'claude',
 } satisfies NodeJS.ProcessEnv;
 
 export const validPolicy: AppConfig['autopilot'] = {
@@ -100,9 +101,13 @@ export function createTestConfig(overrides: Record<string, unknown> = {}): AppCo
       resolvedLabel: 'auto-recovery-resolved',
       ...((overrides.recovery as Record<string, unknown>) ?? {}),
     },
+    repair: {
+      provider: 'claude',
+      ...((overrides.repair as Record<string, unknown>) ?? {}),
+    },
     autopilot: validPolicy,
   };
 
-  const { target: _t, recovery: _r, ...rest } = overrides;
+  const { target: _t, recovery: _r, repair: _repair, ...rest } = overrides;
   return AppConfigSchema.parse({ ...base, ...rest });
 }

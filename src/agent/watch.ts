@@ -1,5 +1,5 @@
 import { selectWatchableGitHubIssues, type WatchedGitHubIssue } from './github-issue-watcher.js';
-import { assertTargetRepositoryConfigured, buildClaudeDispatchComment } from './sync.js';
+import { assertTargetRepositoryConfigured, buildRepairDispatchComment, repairDispatchEvent } from './sync.js';
 import type { AppConfig } from '../config/schema.js';
 import { isActionAllowed } from '../policy/autopilot-policy.js';
 import { GitHubIssueSyncClient } from '../providers/github/issues.js';
@@ -96,18 +96,19 @@ async function acceptWatchedIssue(
   await github.addIssueComment(issue.number, buildAcceptedComment(issue));
 
   if (!isActionAllowed(config.autopilot, 'trigger_claude') && !isActionAllowed(config.autopilot, 'trigger_agent')) {
-    return { ...base, action: 'accepted', claudeDispatch: 'blocked', reason: 'Policy accepted the issue but blocked Claude dispatch' };
+    return { ...base, action: 'accepted', claudeDispatch: 'blocked', reason: 'Policy accepted the issue but blocked repair dispatch' };
   }
 
   const sentryIssue = sentrySummaryFromWatchedIssue(issue);
-  await github.createRepositoryDispatch('back-to-service.incident', {
+  await github.createRepositoryDispatch(repairDispatchEvent(config), {
     sentryIssueId: issue.sentry.issueId,
     shortId: issue.sentry.shortId ?? issue.sentry.issueId,
     issueNumber: issue.number,
     issueUrl: issue.htmlUrl,
     title: issue.title,
+    repairProvider: config.repair.provider,
   });
-  await github.addIssueComment(issue.number, buildClaudeDispatchComment(sentryIssue));
+  await github.addIssueComment(issue.number, buildRepairDispatchComment(sentryIssue, config));
 
   return { ...base, action: 'accepted', claudeDispatch: 'dispatched' };
 }

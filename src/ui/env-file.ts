@@ -54,6 +54,8 @@ export function writeEnvFile(values: EnvFileData, path = '.env'): void {
     'VERCEL_PROJECT_ID',
     'VERCEL_PROJECT_NAME',
     'ANTHROPIC_API_KEY',
+    'OPENAI_API_KEY',
+    'BTS_REPAIR_PROVIDER',
     'AUTOPILOT_ENABLED',
     'AUTOPILOT_DRY_RUN',
     'AUTOPILOT_CONFIDENCE_THRESHOLD',

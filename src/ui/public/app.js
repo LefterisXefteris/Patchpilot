@@ -10,6 +10,7 @@ const secretLabels = {
   GITHUB_WEBHOOK_SECRET: "GitHub webhook",
   VERCEL_TOKEN: "Vercel token",
   ANTHROPIC_API_KEY: "Anthropic key",
+  OPENAI_API_KEY: "OpenAI key",
 };
 
 loadConfig();

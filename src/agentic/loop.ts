@@ -275,14 +275,18 @@ async function runDecisionPath(input: {
     suspectFileContext,
   });
 
+  const repairProvider = String(dispatchResult.output.repairProvider ?? input.config?.repair.provider ?? 'claude');
+  const dispatched = Boolean(dispatchResult.output.dispatched);
   const decision: AgentDecision = {
-    action: 'trigger_claude',
+    action: repairProvider === 'codex' ? 'trigger_agent' : 'trigger_claude',
     confidence,
-    reason: 'High-confidence production incident with enough evidence; Claude draft-PR worker was triggered.',
+    reason: `High-confidence production incident with enough evidence; ${repairProvider} draft-PR worker was triggered.`,
     issueNumber,
     issueUrl,
     sentryIssueId,
-    triggeredClaude: Boolean(dispatchResult.output.dispatched),
+    triggeredClaude: repairProvider === 'claude' ? dispatched : false,
+    triggeredRepair: dispatched,
+    repairProvider,
     retrievedMemoryCount: memories.length,
     primarySuspectFile: fileMapping.primaryFile,
     fileMappingConfidence: fileMapping.mappingConfidence,

@@ -220,16 +220,27 @@ async function syncNewIssue(
   };
 }
 
-export function buildClaudeDispatchComment(issue: SentryIssueSummary): string {
+export function repairDispatchEvent(config: AppConfig): string {
+  return config.repair.provider === 'codex' ? 'back-to-service.incident.codex' : 'back-to-service.incident';
+}
+
+export function repairWorkerName(config: AppConfig): string {
+  return config.repair.provider === 'codex' ? 'Codex' : 'Claude Code';
+}
+
+export function buildRepairDispatchComment(issue: SentryIssueSummary, config: AppConfig): string {
+  const workerName = repairWorkerName(config);
   return [
-    '## Back To Service - Claude queued',
+    `## Back To Service - ${workerName} queued`,
     '',
-    `Claude Code was dispatched to open a draft PR for Sentry issue ${issue.shortId}.`,
+    `${workerName} was dispatched to open a draft PR for Sentry issue ${issue.shortId}.`,
     '',
     'Allowed: inspect the repository, apply the smallest safe patch, run available checks, and open or update a draft PR.',
     'Blocked: merge, deploy, rollback, secret exposure, and unrelated refactors.',
   ].join('\n');
 }
+
+export const buildClaudeDispatchComment = buildRepairDispatchComment;
 
 async function maybeDispatchClaude(
   config: AppConfig,
@@ -247,15 +258,16 @@ async function maybeDispatchClaude(
     return 'blocked';
   }
 
-  await github.createRepositoryDispatch('back-to-service.incident', {
+  await github.createRepositoryDispatch(repairDispatchEvent(config), {
     sentryIssueId: issue.id,
     shortId: issue.shortId,
     issueNumber: githubIssueNumber,
     issueUrl: githubIssueUrl,
     title: issue.title,
     marker: sentryIssueMarker(issue.id),
+    repairProvider: config.repair.provider,
   });
-  await github.addIssueComment(githubIssueNumber, buildClaudeDispatchComment(issue));
+  await github.addIssueComment(githubIssueNumber, buildRepairDispatchComment(issue, config));
 
   return 'dispatched';
 }

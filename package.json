@@ -15,7 +15,8 @@
     "agent:recover": "tsx src/index.ts agent:recover",
     "eval": "tsx src/index.ts eval",
     "ui": "tsx src/ui/server.ts",
-    "show:claude-workflow": "tsx src/scripts/show-claude-workflow.ts"
+    "show:claude-workflow": "tsx src/scripts/show-claude-workflow.ts",
+    "show:codex-workflow": "tsx src/scripts/show-codex-workflow.ts"
   },
   "dependencies": {
     "@ast-grep/napi": "^0.42.1",

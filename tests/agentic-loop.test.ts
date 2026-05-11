@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { sentryIssueMarker } from '../src/agent/sync.js';
 import { runIncidentAgent } from '../src/agentic/loop.js';
+import { createTestConfig } from './test-helpers.js';
 
 describe('runIncidentAgent', () => {
   it('runs an offline production incident loop and records Claude trigger intent', async () => {
@@ -123,6 +124,25 @@ describe('runIncidentAgent', () => {
     expect(trace).toContain('src/main.tsx');
     expect(trace).toContain('Relevant prior incidents');
     expect(trace).toContain('runtimeConfig was missing');
+    vi.restoreAllMocks();
+  });
+
+  it('dispatches the Codex repair event when Codex is configured', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const dbPath = join(mkdtempSync(join(tmpdir(), 'bts-agent-test-')), 'state.sqlite');
+
+    const summary = await runIncidentAgent({
+      dbPath,
+      dryRun: true,
+      config: createTestConfig({ repair: { provider: 'codex' } }),
+    });
+    const trace = execFileSync('sqlite3', [dbPath, "SELECT output_json FROM tool_calls WHERE name = 'github_repository_dispatch_claude';"]).toString();
+
+    expect(summary.decision.action).toBe('trigger_agent');
+    expect(summary.decision.repairProvider).toBe('codex');
+    expect(summary.decision.triggeredRepair).toBe(false);
+    expect(trace).toContain('back-to-service.incident.codex');
+    expect(trace).toContain('codex');
     vi.restoreAllMocks();
   });
 });

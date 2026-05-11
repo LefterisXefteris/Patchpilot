@@ -1,0 +1,131 @@
+name: Back To Service Codex
+
+on:
+  issues:
+    types: [opened, reopened]
+  issue_comment:
+    types: [created]
+  repository_dispatch:
+    types: [back-to-service.incident.codex]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  fix:
+    if: >-
+      github.event_name == 'repository_dispatch' ||
+      (
+        github.actor == github.repository_owner &&
+        contains(github.event.issue.body, '<!-- back-to-service:sentry-issue-id:') &&
+        (
+          github.event_name == 'issues' ||
+          (
+            github.event_name == 'issue_comment' &&
+            contains(github.event.comment.body, '/back-to-service fix')
+          )
+        )
+      )
+    runs-on: ubuntu-latest
+    env:
+      INCIDENT_ISSUE_URL: ${{ github.event.issue.html_url || github.event.client_payload.issueUrl }}
+      INCIDENT_ISSUE_NUMBER: ${{ github.event.issue.number || github.event.client_payload.issueNumber }}
+      INCIDENT_TITLE: ${{ github.event.issue.title || github.event.client_payload.title }}
+      SENTRY_SHORT_ID: ${{ github.event.client_payload.shortId || 'from-github-issue' }}
+      SENTRY_ISSUE_ID: ${{ github.event.client_payload.sentryIssueId || 'from-github-issue' }}
+      BTS_SUSPECT_FILES: ${{ github.event.client_payload.suspectFileContext || '' }}
+      BTS_MEMORY_CONTEXT: ${{ github.event.client_payload.memoryContext || '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies before Codex sandbox
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          elif [ -f pnpm-lock.yaml ]; then
+            corepack enable
+            pnpm install --frozen-lockfile
+          elif [ -f yarn.lock ]; then
+            corepack enable
+            yarn install --frozen-lockfile
+          fi
+
+      - name: Run Codex repair worker
+        id: codex
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          model: gpt-5.1-codex
+          effort: medium
+          sandbox: workspace-write
+          allow-bots: true
+          prompt: |
+            You are fixing a production incident from Back To Service.
+
+            GitHub incident issue: ${{ env.INCIDENT_ISSUE_URL }}
+            Sentry issue: ${{ env.SENTRY_SHORT_ID }}
+            Sentry issue id: ${{ env.SENTRY_ISSUE_ID }}
+            Title: ${{ env.INCIDENT_TITLE }}
+
+            Suspect files from Back To Service:
+            ${{ env.BTS_SUSPECT_FILES }}
+
+            Prior incident memory from Back To Service:
+            ${{ env.BTS_MEMORY_CONTEXT }}
+
+            Inspect the repository and identify the smallest safe fix for the production error.
+            Read the linked GitHub issue body for Sentry evidence, stack details, and Back To Service status.
+            If suspect files are provided, inspect those files first with rg/read before broadening search.
+            If suspect files do not explain the issue, broaden search and explain why in your final message.
+            If the incident mentions SENTRY_TEST_CRASH or an intentional frontend boot failure, first search for that exact string and remove or guard the intentional throw.
+            Prefer the smallest patch that stops the production boot crash.
+            Run available checks before finishing; if a check is unavailable, mention that in your final message.
+            Leave the code changes in the working tree. A later workflow step will create the branch and draft PR.
+
+            Do not merge.
+            Do not deploy.
+            Do not rollback.
+            Do not expose secrets.
+            Do not make unrelated refactors.
+
+      - name: Open draft PR if Codex changed files
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CODEX_FINAL_MESSAGE: ${{ steps.codex.outputs.final-message }}
+        run: |
+          if git diff --quiet; then
+            gh issue comment "${INCIDENT_ISSUE_NUMBER}" --body "Back To Service Codex finished without code changes. Summary:\n\n${CODEX_FINAL_MESSAGE}"
+            exit 0
+          fi
+
+          branch="back-to-service/codex-${INCIDENT_ISSUE_NUMBER}-${GITHUB_RUN_ID}"
+          git config user.name "back-to-service[bot]"
+          git config user.email "back-to-service[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git add -A
+          git commit -m "Fix Back To Service incident #${INCIDENT_ISSUE_NUMBER}"
+          git push origin "$branch"
+          gh pr create \
+            --draft \
+            --base "${{ github.event.repository.default_branch }}" \
+            --head "$branch" \
+            --title "Fix Back To Service incident #${INCIDENT_ISSUE_NUMBER}" \
+            --body "Back To Service Codex repair for ${INCIDENT_ISSUE_URL}
+
+Sentry issue: ${SENTRY_SHORT_ID}
+Sentry issue id: ${SENTRY_ISSUE_ID}
+
+Suspect files:
+${BTS_SUSPECT_FILES}
+
+Prior incident memory:
+${BTS_MEMORY_CONTEXT}
+
+Codex summary:
+${CODEX_FINAL_MESSAGE}
+
+Safety:
+- Draft PR only.
+- No merge, deploy, rollback, or secret exposure performed by this workflow."

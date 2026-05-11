@@ -42,7 +42,7 @@ This avoids spending agent effort on workflows Sentry and GitHub already cover.
 1. The watcher reads target-repo GitHub issues and parses Sentry markers, short IDs, or permalinks.
 2. It accepts production Sentry issues with labels/title/body evidence or manual diagnosis approval.
 3. It ignores issues without Sentry evidence, non-production issues, and duplicates in the same batch.
-4. Accepted issues get a lightweight Back To Service status comment and optional Claude dispatch when policy allows.
+4. Accepted issues get a lightweight Back To Service status comment and optional repair-worker dispatch when policy allows.
 
 ### Phase 3: Diagnosis Engine
 
@@ -61,7 +61,7 @@ This avoids spending agent effort on workflows Sentry and GitHub already cover.
 **Goal:** Turn high-confidence diagnoses into small verified pull requests.
 
 **Success Criteria:**
-1. The agent creates an isolated incident-linked branch.
+1. The configured repair worker creates an isolated incident-linked branch.
 2. The patch is scoped to the diagnosed failure and avoids unrelated refactors.
 3. Configured checks run and their output is captured.
 4. The PR links the GitHub issue and Sentry issue and includes evidence, verification, and risk.

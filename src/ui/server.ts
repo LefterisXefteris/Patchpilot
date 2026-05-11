@@ -18,9 +18,18 @@ const secretKeys = new Set([
   'GITHUB_WEBHOOK_SECRET',
   'VERCEL_TOKEN',
   'ANTHROPIC_API_KEY',
+  'OPENAI_API_KEY',
 ]);
 
-type CommandName = 'validate' | 'syncDryRun' | 'syncApply' | 'agentRun' | 'eval' | 'claudeWorkflow' | 'redispatchClaude';
+type CommandName =
+  | 'validate'
+  | 'syncDryRun'
+  | 'syncApply'
+  | 'agentRun'
+  | 'eval'
+  | 'claudeWorkflow'
+  | 'codexWorkflow'
+  | 'redispatchClaude';
 
 const server = createServer(async (request, response) => {
   try {
@@ -99,6 +108,7 @@ async function runCommand(command: CommandName | undefined): Promise<{ ok: boole
     agentRun: ['run', 'agent:run'],
     eval: ['run', 'eval'],
     claudeWorkflow: ['run', 'show:claude-workflow'],
+    codexWorkflow: ['run', 'show:codex-workflow'],
     redispatchClaude: ['run', 'agent:watch', '--', '--apply', '--limit', '5'],
   };
   const args = command ? commandMap[command] : undefined;

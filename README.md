@@ -2,7 +2,7 @@
 
 Back To Service is an AI production recovery agent for a configured target app.
 
-It watches Sentry-created GitHub issues in the target repo, fetches linked Sentry evidence when needed, triggers a Claude Code repair workflow, and verifies whether production recovered through Vercel, HTTP health checks, and Sentry quieting.
+It watches Sentry-created GitHub issues in the target repo, fetches linked Sentry evidence when needed, triggers a configured repair workflow, and verifies whether production recovered through Vercel, HTTP health checks, and Sentry quieting.
 
 This repo is the **agent/control plane**. It does not fix itself. The broken application is a separate target repo.
 
@@ -43,7 +43,7 @@ This is a guarded production recovery agent, not a reckless full-autopilot deplo
 - Back To Service can verify recovery and close recovered incident issues.
 - It does **not** auto-merge PRs by default.
 - It does **not** auto-rollback or mutate production infrastructure by default.
-- The live code repair LLM is Claude Code GitHub Actions. Back To Service orchestrates the incident loop and keeps the audit trail.
+- The live code repair worker can be Claude Code or OpenAI Codex through target-repo GitHub Actions. Back To Service orchestrates the incident loop and keeps the audit trail.
 
 One important Vercel setting: if Vercel has **Require Verified Commits** enabled, bot/API commits may be canceled before build because they are unverified. For this agent flow, that setting should be off unless you implement signed bot commits.
 
@@ -57,7 +57,7 @@ Back To Service uses meaningful typed tools around real production systems:
 | `sentry_list_issues` | Legacy fallback for unresolved production Sentry polling. |
 | `sentry_get_issue_event` | Fetch event evidence for diagnosis/evals. |
 | `github_find_or_create_incident_issue` | Deduplicate and record incidents in GitHub Issues. |
-| `github_repository_dispatch_claude` | Trigger Claude Code in the target repo. |
+| `github_repository_dispatch_claude` | Trigger the configured repair worker in the target repo. |
 | `vercel_get_latest_production_deployment` | Check the target production deployment. |
 | `severity_calculator` | Score incident severity/confidence in the agent harness. |
 | incident memory | Retrieve compact prior Sentry incident lessons from SQLite. |
@@ -132,10 +132,11 @@ Start the local setup UI:
 npm run ui
 ```
 
-Print the target repo Claude workflow template:
+Print the target repo repair workflow templates:
 
 ```bash
 npm run show:claude-workflow
+npm run show:codex-workflow
 ```
 
 ## Incident Memory
@@ -170,7 +171,7 @@ How this project maps:
 | Cost/latency tracking | Yes | `src/agentic/observability.ts` estimates tokens/cost and records latency metrics. |
 | Prompt ablation | Yes | Prompt variants live in `prompts/` and run with `npm run eval -- --ablation`. |
 | Honest failure docs | Yes | See `docs/FAILURES.md`. |
-| LLM-driven tool selection | Partial / honest | The offline Back To Service harness uses deterministic tool-path simulation for reproducible evals. Live LLM-driven code repair happens inside Claude Code GitHub Actions, where Claude chooses repo/search/edit/test tools. |
+| LLM-driven tool selection | Partial / honest | The offline Back To Service harness uses deterministic tool-path simulation for reproducible evals. Live LLM-driven code repair happens inside Claude Code or OpenAI Codex GitHub Actions, where the repair worker chooses repo/search/edit/test tools. |
 
 The main improvement needed for a stricter interpretation of "LLM-driven tool selection" is adding a live model adapter to `agent:run --live` so Back To Service itself chooses tools through an LLM rather than a deterministic policy.
 
@@ -279,7 +280,7 @@ See `docs/GITHUB_ACTIONS_AUTOPILOT.md` for more detail.
 
 ## Target Repo Claude Workflow
 
-The target repo needs:
+The target repo needs one repair workflow. For Claude:
 
 ```text
 .github/workflows/back-to-service-claude.yml
@@ -291,13 +292,28 @@ Generate the template with:
 npm run show:claude-workflow
 ```
 
-The target repo also needs:
+For OpenAI Codex:
+
+```text
+.github/workflows/back-to-service-codex.yml
+```
+
+Generate the template with:
+
+```bash
+npm run show:codex-workflow
+```
+
+Set `BTS_REPAIR_PROVIDER=codex` in the Back To Service environment so dispatch uses the Codex-specific repository event.
+
+The target repo also needs the matching provider secret:
 
 ```text
 ANTHROPIC_API_KEY
+OPENAI_API_KEY
 ```
 
-as a GitHub Actions secret.
+as a GitHub Actions secret for whichever repair provider is installed.
 
 The Claude workflow is intentionally constrained:
 
@@ -334,7 +350,7 @@ See `docs/FAILURES.md`.
 The short version:
 
 - Back To Service's local eval planner is deterministic today.
-- Live LLM repair is delegated to Claude Code.
+- Live LLM repair is delegated to the configured target-repo repair workflow: Claude Code by default, or OpenAI Codex when `BTS_REPAIR_PROVIDER=codex`.
 - Auto-merge is intentionally disabled.
 - Sentry source-map/release-to-commit correlation is future work.
 - Cost tracking is estimated, not provider-billed.

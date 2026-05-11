@@ -40,7 +40,14 @@ describe('env config', () => {
     expect(config.github.repo).toBe('back-to-service');
     expect(config.github.targetRepo).toBe('web');
     expect(config.vercel.projectId).toBe('prj_123');
+    expect(config.repair.provider).toBe('claude');
     expect(config.autopilot.allowRecoveryHook).toBe(true);
+  });
+
+  it('loads Codex as a repair provider', async () => {
+    const config = await loadConfigFromEnv({ ...validEnv, BTS_REPAIR_PROVIDER: 'codex' });
+
+    expect(config.repair.provider).toBe('codex');
   });
 
   it('reads secret fields through SecretStore', async () => {

@@ -8,8 +8,8 @@ Back To Service can run from GitHub Actions so it does not depend on a laptop.
 GitHub schedule every 5 minutes
 -> Sentry GitHub integration has already created GitHub issues in the target repo
 -> Back To Service watches eligible Sentry-created issues
--> Target repo issue-opened workflow starts Claude
--> Claude opens a draft PR
+-> Target repo repair workflow starts Claude or Codex
+-> Repair worker opens a draft PR
 ```
 
 GitHub Actions scheduled workflows are not a good fit for 2 minute polling. The workflow uses 5 minutes as a safety net around Sentry-created GitHub issues; immediate repair can still happen through the target repo `issues.opened` trigger.
@@ -62,7 +62,7 @@ SENTRY_ENVIRONMENT=production
 
 ## Target Repo Setup
 
-In the target repo, add:
+In the target repo, add one repair workflow. For Claude, add:
 
 ```text
 .github/workflows/back-to-service-claude.yml
@@ -74,11 +74,32 @@ Use:
 npm run show:claude-workflow
 ```
 
-Then add the target repo GitHub Actions secret:
+For OpenAI Codex, add:
+
+```text
+.github/workflows/back-to-service-codex.yml
+```
+
+Use:
+
+```bash
+npm run show:codex-workflow
+```
+
+Then set this in the Back To Service repo environment:
+
+```text
+BTS_REPAIR_PROVIDER=codex
+```
+
+Add the matching target repo GitHub Actions secret:
 
 ```text
 ANTHROPIC_API_KEY
+OPENAI_API_KEY
 ```
+
+Use `ANTHROPIC_API_KEY` for Claude or `OPENAI_API_KEY` for Codex.
 
 ## Existing Issues
 

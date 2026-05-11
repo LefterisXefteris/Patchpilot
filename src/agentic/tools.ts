@@ -189,7 +189,7 @@ export function createIncidentTools(): AgentTool[] {
     },
     {
       name: 'github_repository_dispatch_claude',
-      description: 'Trigger the target repository Claude Code workflow with a safe incident payload.',
+      description: 'Trigger the configured target repository repair workflow with a safe incident payload.',
       inputSchema: objectSchema(
         {
           sentryIssueId: stringSchema('Sentry issue id.'),
@@ -205,15 +205,18 @@ export function createIncidentTools(): AgentTool[] {
       outputSchema: objectSchema({
         dispatched: booleanSchema('Whether dispatch was sent.'),
         eventType: stringSchema('Repository dispatch event type.'),
+        repairProvider: stringSchema('Repair worker provider selected by Back To Service.'),
       }),
       execute: async (input, context) => {
-        const eventType = 'back-to-service.incident';
+        const repairProvider = context.config?.repair.provider ?? 'claude';
+        const eventType = repairProvider === 'codex' ? 'back-to-service.incident.codex' : 'back-to-service.incident';
         if (!context.config || context.dryRun) {
           return {
             ok: true,
             output: {
               dispatched: false,
               eventType,
+              repairProvider,
             },
           };
         }
@@ -226,6 +229,7 @@ export function createIncidentTools(): AgentTool[] {
           title: input.title,
           memoryContext: input.memoryContext,
           suspectFileContext: input.suspectFileContext,
+          repairProvider,
         });
 
         return {
@@ -233,6 +237,7 @@ export function createIncidentTools(): AgentTool[] {
           output: {
             dispatched: true,
             eventType,
+            repairProvider,
           },
         };
       },

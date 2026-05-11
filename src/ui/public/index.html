@@ -11,7 +11,7 @@
       <header class="topbar">
         <div>
           <h1>Back To Service</h1>
-          <p>GitHub issue watching, Sentry evidence lookup, agent evaluation, and Claude draft-PR trigger setup.</p>
+          <p>GitHub issue watching, Sentry evidence lookup, agent evaluation, and repair-worker trigger setup.</p>
         </div>
         <div class="status-pill" id="save-status">Local only</div>
       </header>
@@ -54,9 +54,11 @@
             </fieldset>
 
             <fieldset>
-              <legend>Claude Worker</legend>
+              <legend>Repair Worker</legend>
+              <label>Provider <input data-key="BTS_REPAIR_PROVIDER" placeholder="claude or codex" /></label>
               <label>Anthropic API key <input data-key="ANTHROPIC_API_KEY" type="password" autocomplete="off" /></label>
-              <p class="field-note">Add this key as a GitHub Actions secret named ANTHROPIC_API_KEY in the target repo before live dispatch.</p>
+              <label>OpenAI API key <input data-key="OPENAI_API_KEY" type="password" autocomplete="off" /></label>
+              <p class="field-note">Add ANTHROPIC_API_KEY for Claude or OPENAI_API_KEY for Codex as a GitHub Actions secret in the target repo.</p>
             </fieldset>
 
             <fieldset>
@@ -81,6 +83,7 @@
             <button data-command="agentRun">Run Agent Loop</button>
             <button data-command="eval">Run Offline Eval</button>
             <button data-command="claudeWorkflow">Show Claude Workflow</button>
+            <button data-command="codexWorkflow">Show Codex Workflow</button>
             <button data-command="redispatchClaude">Dispatch Accepted Issues</button>
           </div>
           <div class="secret-list" id="secret-list"></div>

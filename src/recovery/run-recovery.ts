@@ -1,4 +1,5 @@
 import type { AppConfig } from '../config/schema.js';
+import { repairDispatchEvent, repairWorkerName } from '../agent/sync.js';
 import { isActionAllowed } from '../policy/autopilot-policy.js';
 import { GitHubIssueSyncClient } from '../providers/github/issues.js';
 import { SqliteStateStore } from '../state/sqlite-store.js';
@@ -9,7 +10,6 @@ import { decide } from './decide.js';
 import type { RecoveryAttemptRecord, RecoveryDecision, RecoveryRunResult, RecoveryRunSummary } from './types.js';
 
 const MARKER_PATTERN = /<!--\s*back-to-service:sentry-issue-id:([^\s]+?)\s*-->/;
-const CLAUDE_DISPATCH_EVENT = 'back-to-service.incident';
 
 export type RecoveryRunOptions = {
   apply?: boolean;
@@ -170,8 +170,8 @@ async function applyDecision(input: {
       ) {
         return { applied: false, reason: 'policy_blocked_retry' };
       }
-      await github.addIssueComment(issue.number, buildRetryComment(decision, verification));
-      await github.createRepositoryDispatch(CLAUDE_DISPATCH_EVENT, {
+      await github.addIssueComment(issue.number, buildRetryComment(decision, verification, config));
+      await github.createRepositoryDispatch(repairDispatchEvent(config), {
         sentryIssueId: sentryIssueId ?? '',
         shortId: '',
         issueNumber: issue.number,
@@ -179,6 +179,7 @@ async function applyDecision(input: {
         title: issue.title,
         attemptNumber: decision.attemptNumber,
         retry: true,
+        repairProvider: config.repair.provider,
       });
       return { applied: true };
     }
@@ -209,7 +210,7 @@ function buildRecoveredComment(decision: RecoveryDecision, verification: Verific
   ].join('\n');
 }
 
-function buildRetryComment(decision: RecoveryDecision, verification: VerificationResult): string {
+function buildRetryComment(decision: RecoveryDecision, verification: VerificationResult, config: AppConfig): string {
   return [
     `## 🔁 Back To Service — Retry attempt ${decision.attemptNumber}`,
     '',
@@ -219,7 +220,7 @@ function buildRetryComment(decision: RecoveryDecision, verification: Verificatio
     verification.summary,
     '```',
     '',
-    'Re-dispatching the Claude repair workflow now.',
+    `Re-dispatching the ${repairWorkerName(config)} repair workflow now.`,
   ].join('\n');
 }
 

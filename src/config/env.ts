@@ -140,6 +140,9 @@ export async function loadConfig(
       needsHumanLabel: env.BTS_RECOVERY_NEEDS_HUMAN_LABEL ?? 'needs-human',
       resolvedLabel: env.BTS_RECOVERY_RESOLVED_LABEL ?? 'auto-recovery-resolved',
     },
+    repair: {
+      provider: env.BTS_REPAIR_PROVIDER ?? 'claude',
+    },
     autopilot: {
       enabled: parseBoolean(env.AUTOPILOT_ENABLED, false),
       dryRun: parseBoolean(env.AUTOPILOT_DRY_RUN, true),

@@ -24,7 +24,7 @@ export type ToolCallPlan = {
   input: JsonObject;
 };
 
-export type AgentDecisionAction = 'ignore' | 'create_issue' | 'update_issue' | 'trigger_claude' | 'needs_human';
+export type AgentDecisionAction = 'ignore' | 'create_issue' | 'update_issue' | 'trigger_agent' | 'trigger_claude' | 'needs_human';
 
 export type AgentDecision = {
   action: AgentDecisionAction;
@@ -34,6 +34,8 @@ export type AgentDecision = {
   issueUrl?: string;
   sentryIssueId?: string;
   triggeredClaude?: boolean;
+  triggeredRepair?: boolean;
+  repairProvider?: string;
   retrievedMemoryCount?: number;
   primarySuspectFile?: string;
   fileMappingConfidence?: number;
