@@ -40,6 +40,8 @@ describe('env config', () => {
     expect(config.github.repo).toBe('back-to-service');
     expect(config.github.targetRepo).toBe('web');
     expect(config.vercel.projectId).toBe('prj_123');
+    expect(config.performance.enabled).toBe(true);
+    expect(config.performance.allowedOps).toContain('db');
     expect(config.repair.provider).toBe('claude');
     expect(config.autopilot.allowRecoveryHook).toBe(true);
   });

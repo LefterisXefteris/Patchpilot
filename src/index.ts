@@ -1,5 +1,6 @@
 import { loadConfigFromEnv } from './config/env.js';
 import { loadDotenvFile } from './config/dotenv.js';
+import { runAgentPerformanceSync } from './agent/performance-sync.js';
 import { runAgentSync } from './agent/sync.js';
 import { runAgentWatch } from './agent/watch.js';
 import { runIncidentAgent } from './agentic/loop.js';
@@ -11,8 +12,8 @@ import { validateIntegrations } from './validation/validate-integrations.js';
 export async function main(argv = process.argv.slice(2)): Promise<number> {
   loadDotenvFile();
 
-  if (!['validate-config', 'agent:sync', 'agent:watch', 'agent:run', 'agent:recover', 'eval'].includes(argv[0] ?? '')) {
-    console.log('Usage: back-to-service <validate-config|agent:sync|agent:watch|agent:run|agent:recover|eval> [--apply] [--limit N] [--db PATH]');
+  if (!['validate-config', 'agent:sync', 'agent:performance', 'agent:watch', 'agent:run', 'agent:recover', 'eval'].includes(argv[0] ?? '')) {
+    console.log('Usage: back-to-service <validate-config|agent:sync|agent:performance|agent:watch|agent:run|agent:recover|eval> [--apply] [--limit N] [--db PATH]');
     return 1;
   }
 
@@ -45,6 +46,16 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
 
     if (argv[0] === 'agent:sync') {
       const summary = await runAgentSync(config, {
+        apply: argv.includes('--apply'),
+        limit: parseLimit(argv),
+        redispatch: argv.includes('--redispatch'),
+      });
+      console.log(JSON.stringify(summary, null, 2));
+      return summary.ok ? 0 : 1;
+    }
+
+    if (argv[0] === 'agent:performance') {
+      const summary = await runAgentPerformanceSync(config, {
         apply: argv.includes('--apply'),
         limit: parseLimit(argv),
         redispatch: argv.includes('--redispatch'),

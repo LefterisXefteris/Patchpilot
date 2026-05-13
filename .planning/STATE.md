@@ -5,7 +5,7 @@
 See: .planning/PROJECT.md (updated 2026-04-25)
 
 **Core value:** Production errors should move from detection to verified recovery with as little human intervention as safely possible.
-**Current focus:** Phase 2 - GitHub Issue Watcher
+**Current focus:** Phase 2 - GitHub Issue Watcher and Performance Intake
 
 ## Current Milestone
 
@@ -18,7 +18,7 @@ See: .planning/PROJECT.md (updated 2026-04-25)
 | Phase | Name | Status | Progress |
 |-------|------|--------|----------|
 | 1 | Integration Foundation | Complete | 100% |
-| 2 | GitHub Issue Watcher | In Progress | 35% |
+| 2 | GitHub Issue Watcher and Performance Intake | In Progress | 45% |
 | 3 | Diagnosis Engine | Pending | 0% |
 | 4 | Patch PR Loop | Pending | 0% |
 | 5 | Verify and Recover | Pending | 0% |
@@ -32,6 +32,7 @@ See: .planning/PROJECT.md (updated 2026-04-25)
 - Use patch-first recovery, with rollback/redeploy/restart as fallbacks.
 - Use GitHub Issues as the visible incident record.
 - Rely on Sentry's GitHub integration to create first incident issues; Back To Service watches and acts on eligible existing issues.
+- Treat Sentry performance bottlenecks as conservative incidents: create/update GitHub issues, dispatch optimization PR work, and keep merge human-gated by default.
 - Store compact redacted incident memory in SQLite first; memory is advisory during diagnosis and current Sentry/GitHub evidence remains authoritative.
 - Enforce explicit safety policy and auditability before autonomous production mutation.
 
@@ -44,3 +45,4 @@ See: .planning/PROJECT.md (updated 2026-04-25)
 - On 2026-05-10, the roadmap was revised to avoid duplicating Sentry/GitHub issue creation. The default agent entrypoint is now GitHub issue watching; Sentry polling remains a legacy/fallback command.
 - On 2026-05-10, SQLite incident memory was added for compact synthetic Sentry lessons, similarity retrieval, and bounded advisory context to reduce repeated diagnosis tokens.
 - On 2026-05-11, OpenAI Codex was added as an alternate target-repo repair worker through `BTS_REPAIR_PROVIDER=codex`, alongside the existing Claude workflow.
+- On 2026-05-13, Sentry performance bottleneck intake was added behind `PERF_ENABLED`, with GitHub performance incident sync, repair dispatch payloads, and performance verification checks.
