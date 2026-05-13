@@ -1,4 +1,4 @@
-name: Back To Service Codex
+name: Patchpilot Codex
 
 on:
   issues:
@@ -62,21 +62,21 @@ jobs:
           sandbox: workspace-write
           allow-bots: true
           prompt: |
-            You are fixing a production incident from Back To Service.
+            You are fixing a production incident from Patchpilot.
 
             GitHub incident issue: ${{ env.INCIDENT_ISSUE_URL }}
             Sentry issue: ${{ env.SENTRY_SHORT_ID }}
             Sentry issue id: ${{ env.SENTRY_ISSUE_ID }}
             Title: ${{ env.INCIDENT_TITLE }}
 
-            Suspect files from Back To Service:
+            Suspect files from Patchpilot:
             ${{ env.BTS_SUSPECT_FILES }}
 
-            Prior incident memory from Back To Service:
+            Prior incident memory from Patchpilot:
             ${{ env.BTS_MEMORY_CONTEXT }}
 
             Inspect the repository and identify the smallest safe fix for the production error.
-            Read the linked GitHub issue body for Sentry evidence, stack details, and Back To Service status.
+            Read the linked GitHub issue body for Sentry evidence, stack details, and Patchpilot status.
             If suspect files are provided, inspect those files first with rg/read before broadening search.
             If suspect files do not explain the issue, broaden search and explain why in your final message.
             If the incident mentions SENTRY_TEST_CRASH or an intentional frontend boot failure, first search for that exact string and remove or guard the intentional throw.
@@ -96,7 +96,7 @@ jobs:
           CODEX_FINAL_MESSAGE: ${{ steps.codex.outputs.final-message }}
         run: |
           if git diff --quiet; then
-            gh issue comment "${INCIDENT_ISSUE_NUMBER}" --body "Back To Service Codex finished without code changes. Summary:\n\n${CODEX_FINAL_MESSAGE}"
+            gh issue comment "${INCIDENT_ISSUE_NUMBER}" --body "Patchpilot Codex finished without code changes. Summary:\n\n${CODEX_FINAL_MESSAGE}"
             exit 0
           fi
 
@@ -105,14 +105,14 @@ jobs:
           git config user.email "back-to-service[bot]@users.noreply.github.com"
           git switch -c "$branch"
           git add -A
-          git commit -m "Fix Back To Service incident #${INCIDENT_ISSUE_NUMBER}"
+          git commit -m "Fix Patchpilot incident #${INCIDENT_ISSUE_NUMBER}"
           git push origin "$branch"
           gh pr create \
             --draft \
             --base "${{ github.event.repository.default_branch }}" \
             --head "$branch" \
-            --title "Fix Back To Service incident #${INCIDENT_ISSUE_NUMBER}" \
-            --body "Back To Service Codex repair for ${INCIDENT_ISSUE_URL}
+            --title "Fix Patchpilot incident #${INCIDENT_ISSUE_NUMBER}" \
+            --body "Patchpilot Codex repair for ${INCIDENT_ISSUE_URL}
 
 Sentry issue: ${SENTRY_SHORT_ID}
 Sentry issue id: ${SENTRY_ISSUE_ID}

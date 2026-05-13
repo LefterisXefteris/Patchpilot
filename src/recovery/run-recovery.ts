@@ -198,7 +198,7 @@ async function applyDecision(input: {
 
 function buildRecoveredComment(decision: RecoveryDecision, verification: VerificationResult): string {
   return [
-    '## ✅ Back To Service — Recovered',
+    '## ✅ Patchpilot — Recovered',
     '',
     decision.reason,
     '',
@@ -212,7 +212,7 @@ function buildRecoveredComment(decision: RecoveryDecision, verification: Verific
 
 function buildRetryComment(decision: RecoveryDecision, verification: VerificationResult, config: AppConfig): string {
   return [
-    `## 🔁 Back To Service — Retry attempt ${decision.attemptNumber}`,
+    `## 🔁 Patchpilot — Retry attempt ${decision.attemptNumber}`,
     '',
     decision.reason,
     '',
@@ -226,7 +226,7 @@ function buildRetryComment(decision: RecoveryDecision, verification: Verificatio
 
 function buildEscalateComment(decision: RecoveryDecision, verification: VerificationResult): string {
   return [
-    '## 🚨 Back To Service — Needs human',
+    '## 🚨 Patchpilot — Needs human',
     '',
     decision.reason,
     '',

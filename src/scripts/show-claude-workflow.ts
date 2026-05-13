@@ -15,7 +15,7 @@ Then add this GitHub Actions repository secret in that target repo:
 
   ANTHROPIC_API_KEY
 
-The Back To Service GitHub App must be installed on the target repo with:
+The Patchpilot GitHub App must be installed on the target repo with:
 
   - Metadata: read
   - Issues: read/write

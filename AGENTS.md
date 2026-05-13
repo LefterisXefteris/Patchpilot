@@ -2,7 +2,7 @@
 
 ## Project
 
-Back To Service is an AI production recovery agent for Sentry + GitHub + Vercel. It detects production Sentry errors, keeps GitHub issues updated, diagnoses root cause, creates patch PRs, deploys through Vercel, verifies recovery, and uses rollback/redeploy/restart fallbacks when needed.
+Patchpilot is an AI production recovery agent for Sentry + GitHub + Vercel. It detects production Sentry errors, keeps GitHub issues updated, diagnoses root cause, creates patch PRs, deploys through Vercel, verifies recovery, and uses rollback/redeploy/restart fallbacks when needed.
 
 ## Planning Source Of Truth
 

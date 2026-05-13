@@ -1,4 +1,4 @@
-# Requirements: Back To Service
+# Requirements: Patchpilot
 
 **Defined:** 2026-04-25
 **Core Value:** Production errors should move from detection to verified recovery with as little human intervention as safely possible.
@@ -25,7 +25,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### GitHub Issues
 
-- [ ] **GHI-01**: Sentry's GitHub integration creates the first incident issue; Back To Service treats that as a prerequisite instead of duplicating it.
+- [ ] **GHI-01**: Sentry's GitHub integration creates the first incident issue; Patchpilot treats that as a prerequisite instead of duplicating it.
 - [ ] **GHI-02**: Agent updates the existing GitHub issue as intake acceptance, diagnosis, PR, deployment, verification, and fallback actions progress.
 - [ ] **GHI-03**: Agent recognizes stable labels/title/body patterns for state, severity, source, confidence, and autopilot action.
 - [ ] **GHI-04**: Agent records all autonomous decisions and actions as auditable GitHub issue comments.

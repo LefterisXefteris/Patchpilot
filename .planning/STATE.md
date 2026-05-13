@@ -1,4 +1,4 @@
-# State: Back To Service
+# State: Patchpilot
 
 ## Project Reference
 
@@ -31,7 +31,7 @@ See: .planning/PROJECT.md (updated 2026-04-25)
 - Build toward full autopilot.
 - Use patch-first recovery, with rollback/redeploy/restart as fallbacks.
 - Use GitHub Issues as the visible incident record.
-- Rely on Sentry's GitHub integration to create first incident issues; Back To Service watches and acts on eligible existing issues.
+- Rely on Sentry's GitHub integration to create first incident issues; Patchpilot watches and acts on eligible existing issues.
 - Treat Sentry performance bottlenecks as conservative incidents: create/update GitHub issues, dispatch optimization PR work, and keep merge human-gated by default.
 - Store compact redacted incident memory in SQLite first; memory is advisory during diagnosis and current Sentry/GitHub evidence remains authoritative.
 - Enforce explicit safety policy and auditability before autonomous production mutation.

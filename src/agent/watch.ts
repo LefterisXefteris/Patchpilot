@@ -115,7 +115,7 @@ async function acceptWatchedIssue(
 
 function buildAcceptedComment(issue: WatchedGitHubIssue): string {
   return [
-    '## Back To Service Status',
+    '## Patchpilot Status',
     '',
     'Accepted this Sentry-created GitHub issue for diagnosis.',
     '',

@@ -13,7 +13,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
   loadDotenvFile();
 
   if (!['validate-config', 'agent:sync', 'agent:performance', 'agent:watch', 'agent:run', 'agent:recover', 'eval'].includes(argv[0] ?? '')) {
-    console.log('Usage: back-to-service <validate-config|agent:sync|agent:performance|agent:watch|agent:run|agent:recover|eval> [--apply] [--limit N] [--db PATH]');
+    console.log('Usage: patchpilot <validate-config|agent:sync|agent:performance|agent:watch|agent:run|agent:recover|eval> [--apply] [--limit N] [--db PATH]');
     return 1;
   }
 

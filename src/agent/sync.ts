@@ -80,7 +80,7 @@ export function assertTargetRepositoryConfigured(config: AppConfig): void {
 
   throw new Error(
     'GITHUB_TARGET_OWNER and GITHUB_TARGET_REPO are required for agent:sync. ' +
-      'They must point at the broken service repository, not the Back To Service agent repository.',
+      'They must point at the broken service repository, not the Patchpilot agent repository.',
   );
 }
 
@@ -118,7 +118,7 @@ export function buildIssueBody(issue: SentryIssueSummary, marker = sentryIssueMa
 
 export function buildIssueComment(issue: SentryIssueSummary): string {
   return [
-    '## Back To Service Update',
+    '## Patchpilot Update',
     '',
     `Sentry issue ${issue.shortId} is still unresolved in production.`,
     `Last seen: ${issue.lastSeen ?? 'unknown'}`,
@@ -231,7 +231,7 @@ export function repairWorkerName(config: AppConfig): string {
 export function buildRepairDispatchComment(issue: SentryIssueSummary, config: AppConfig): string {
   const workerName = repairWorkerName(config);
   return [
-    `## Back To Service - ${workerName} queued`,
+    `## Patchpilot - ${workerName} queued`,
     '',
     `${workerName} was dispatched to open a draft PR for Sentry issue ${issue.shortId}.`,
     '',

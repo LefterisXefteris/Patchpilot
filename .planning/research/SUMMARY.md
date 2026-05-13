@@ -1,4 +1,4 @@
-# Research Summary: Back To Service
+# Research Summary: Patchpilot
 
 **Date:** 2026-04-25
 **Domain:** AI production recovery agent for Sentry + GitHub + Vercel

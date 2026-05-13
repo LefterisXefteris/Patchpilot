@@ -15,12 +15,12 @@ Then add this GitHub Actions repository secret in that target repo:
 
   OPENAI_API_KEY
 
-Set Back To Service to dispatch this workflow:
+Set Patchpilot to dispatch this workflow:
 
   BTS_REPAIR_PROVIDER=codex
   AUTOPILOT_ALLOWED_ACTIONS=update_issue,trigger_agent
 
-The Back To Service GitHub App must be installed on the target repo with:
+The Patchpilot GitHub App must be installed on the target repo with:
 
   - Metadata: read
   - Issues: read/write

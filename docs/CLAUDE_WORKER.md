@@ -1,14 +1,14 @@
 # Repair Draft PR Workers
 
-Back To Service triggers code repair through a target-repo GitHub Actions workflow. Claude remains the default worker, and OpenAI Codex is available as a cheaper alternative when `BTS_REPAIR_PROVIDER=codex`.
+Patchpilot triggers code repair through a target-repo GitHub Actions workflow. Claude remains the default worker, and OpenAI Codex is available as a cheaper alternative when `BTS_REPAIR_PROVIDER=codex`.
 
 The preferred v1 path is issue-first:
 
 ```text
-Sentry -> Back To Service -> GitHub issue in target repo -> repair workflow opens draft PR
+Sentry -> Patchpilot -> GitHub issue in target repo -> repair workflow opens draft PR
 ```
 
-The workflow also supports `repository_dispatch` as an explicit backup trigger. For existing issues, comment `/back-to-service fix` on a Back To Service Sentry-marker issue to trigger Claude manually.
+The workflow also supports `repository_dispatch` as an explicit backup trigger. For existing issues, comment `/back-to-service fix` on a Patchpilot Sentry-marker issue to trigger Claude manually.
 
 ## Target Repo Setup
 
@@ -30,7 +30,7 @@ Then add this GitHub Actions repository secret in the target repo:
 ANTHROPIC_API_KEY
 ```
 
-The secret must point to an Anthropic account with enough credits for Claude Code runs. If the workflow starts but fails with a low-credit Anthropic error, Back To Service intake is working; replenish credits or rotate the secret, then use a manual redispatch or comment `/back-to-service fix` on the incident issue.
+The secret must point to an Anthropic account with enough credits for Claude Code runs. If the workflow starts but fails with a low-credit Anthropic error, Patchpilot intake is working; replenish credits or rotate the secret, then use a manual redispatch or comment `/back-to-service fix` on the incident issue.
 
 For OpenAI Codex, create this file instead:
 
@@ -50,13 +50,13 @@ Then add this GitHub Actions repository secret in the target repo:
 OPENAI_API_KEY
 ```
 
-Set this in the Back To Service environment:
+Set this in the Patchpilot environment:
 
 ```text
 BTS_REPAIR_PROVIDER=codex
 ```
 
-The Back To Service GitHub App must be installed on the target repo with:
+The Patchpilot GitHub App must be installed on the target repo with:
 
 ```text
 Metadata: read
@@ -77,7 +77,7 @@ For the assignment/demo workflow, the template passes the repository `GITHUB_TOK
 
 The templates keep the repair loop narrow: inspect the repo, edit files, run available checks, and open a draft PR. The Codex workflow leaves PR creation to a deterministic GitHub Actions step after Codex changes files.
 
-When Back To Service dispatches with suspect files from Sentry stack frames or SQLite memory, the repair worker should inspect those files first. Broad repo search is a fallback when the suspect files do not explain the incident.
+When Patchpilot dispatches with suspect files from Sentry stack frames or SQLite memory, the repair worker should inspect those files first. Broad repo search is a fallback when the suspect files do not explain the incident.
 
 ## Live Trigger
 
@@ -94,7 +94,7 @@ npm run agent:run -- --live --apply
 The normal expected result is:
 
 ```text
-Back To Service accepts a GitHub issue -> GitHub Actions starts immediately -> the configured repair worker opens a draft PR
+Patchpilot accepts a GitHub issue -> GitHub Actions starts immediately -> the configured repair worker opens a draft PR
 ```
 
 Default unattended behavior dispatches the configured repair worker for new production Sentry incidents only. Existing incidents are updated without redispatch during normal polling; `agent:recover` handles retries when verification still sees production failing and the retry budget allows it.
@@ -110,7 +110,7 @@ Claude listens to `back-to-service.incident`; Codex listens to `back-to-service.
 
 ## Notes
 
-- The workflow only runs for GitHub issues that contain the Back To Service hidden marker:
+- The workflow only runs for GitHub issues that contain the Patchpilot hidden marker:
 
 ```text
 <!-- back-to-service:sentry-issue-id:
@@ -122,4 +122,4 @@ Claude listens to `back-to-service.incident`; Codex listens to `back-to-service.
 /back-to-service fix
 ```
 
-- GitHub does not start new workflow runs for most events created with a workflow `GITHUB_TOKEN`, but Back To Service uses a GitHub App installation token. GitHub documents GitHub App installation tokens as the correct way to trigger events from automation when needed.
+- GitHub does not start new workflow runs for most events created with a workflow `GITHUB_TOKEN`, but Patchpilot uses a GitHub App installation token. GitHub documents GitHub App installation tokens as the correct way to trigger events from automation when needed.
