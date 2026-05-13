@@ -1,0 +1,25 @@
+# Suggested GitHub labels for making Patchpilot easier to explore and triage.
+- name: good first issue
+  color: "7057ff"
+  description: "Small, well-scoped issue for new contributors."
+- name: docs
+  color: "0075ca"
+  description: "Documentation, examples, or repo discoverability."
+- name: agent
+  color: "5319e7"
+  description: "Agent loop, tool use, dispatch, or repair-worker behavior."
+- name: sentry
+  color: "362d59"
+  description: "Sentry intake, evidence, spans, traces, or issue handling."
+- name: performance
+  color: "fbca04"
+  description: "Performance bottleneck detection, diagnosis, or verification."
+- name: recovery
+  color: "0e8a16"
+  description: "Recovery decisions, verification, retry, or escalation."
+- name: safety
+  color: "d93f0b"
+  description: "Policy, redaction, guardrails, or production mutation controls."
+- name: needs-human
+  color: "b60205"
+  description: "Requires human review, approval, or operational decision."

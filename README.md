@@ -4,6 +4,8 @@ Patchpilot is an AI production recovery agent for a configured target app. It tu
 
 The impact goal is simple: shorten the path from "production is broken or slow" to "a fix PR is ready, verified, and traceable." Patchpilot watches Sentry-created GitHub issues in the target repo, fetches linked Sentry evidence when needed, triggers a configured repair workflow, and verifies whether production recovered through Vercel, HTTP health checks, and Sentry quieting. It can also query Sentry performance data for production bottlenecks and open optimization PR work for human review.
 
+![Patchpilot recovery flow](docs/assets/patchpilot-flow.svg)
+
 This repo is the **agent/control plane**. It does not fix itself. The broken application is a separate target repo.
 
 ```text
@@ -25,6 +27,8 @@ Production incidents usually scatter attention across dashboards, issue threads,
 - **Beyond crashes:** Sentry performance bottlenecks can become optimization work with p75/p95/p99, baseline, and regression context.
 
 ## Live Flow
+
+See [docs/DEMO.md](docs/DEMO.md) for the crash and performance demo paths.
 
 Current live flow:
 
@@ -167,6 +171,15 @@ Print the target repo repair workflow templates:
 npm run show:claude-workflow
 npm run show:codex-workflow
 ```
+
+## Explore The Repo
+
+- [Demo flow](docs/DEMO.md): crash recovery and performance bottleneck recovery from signal to review.
+- [Claude/Codex worker setup](docs/CLAUDE_WORKER.md): target-repo repair workflow details.
+- [GitHub Actions autopilot](docs/GITHUB_ACTIONS_AUTOPILOT.md): 24/7 operation from GitHub Actions.
+- [Failure and safety notes](docs/FAILURES.md): honest limits, known risks, and fallback behavior.
+- [Contributing guide](CONTRIBUTING.md): local setup, PR checklist, and development expectations.
+- [Changelog](CHANGELOG.md): alpha release notes and important PRs.
 
 ## Incident Memory
 

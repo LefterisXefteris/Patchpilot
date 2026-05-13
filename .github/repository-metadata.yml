@@ -1,0 +1,13 @@
+# Apply these settings in GitHub's About panel or through a repo settings bot.
+description: "AI production recovery agent for Sentry, GitHub, and Vercel. Turns incidents and bottlenecks into reviewed PRs."
+homepage: "https://github.com/LefterisXefteris/Patchpilot"
+topics:
+  - ai-agents
+  - sentry
+  - vercel
+  - github-actions
+  - incident-response
+  - observability
+  - production-recovery
+  - ai-devtools
+  - typescript
