@@ -1,8 +1,8 @@
 # Patchpilot
 
-Patchpilot is an AI production recovery agent for a configured target app.
+Patchpilot is an AI production recovery agent for a configured target app. It turns production failures and performance regressions into reviewed code changes, with GitHub as the audit trail and Sentry/Vercel as the evidence loop.
 
-It watches Sentry-created GitHub issues in the target repo, fetches linked Sentry evidence when needed, triggers a configured repair workflow, and verifies whether production recovered through Vercel, HTTP health checks, and Sentry quieting. It can also query Sentry performance data for production bottlenecks and open optimization PR work for human review.
+The impact goal is simple: shorten the path from "production is broken or slow" to "a fix PR is ready, verified, and traceable." Patchpilot watches Sentry-created GitHub issues in the target repo, fetches linked Sentry evidence when needed, triggers a configured repair workflow, and verifies whether production recovered through Vercel, HTTP health checks, and Sentry quieting. It can also query Sentry performance data for production bottlenecks and open optimization PR work for human review.
 
 This repo is the **agent/control plane**. It does not fix itself. The broken application is a separate target repo.
 
@@ -14,7 +14,17 @@ Production:  https://www.snapsyncai.co.uk/
 Sentry:      tribeagent / node-express / production
 ```
 
-## What It Does Today
+## Why It Matters
+
+Production incidents usually scatter attention across dashboards, issue threads, logs, deployments, and code search. Patchpilot keeps the loop in one place:
+
+- **Faster recovery:** eligible production incidents are accepted, diagnosed, and handed to a repair worker automatically.
+- **Lower toil:** engineers review a focused PR instead of starting from a blank incident thread.
+- **Better auditability:** every incident update, dispatch, verification result, and recovery decision is written back to GitHub.
+- **Safer autonomy:** Patchpilot can act up to a draft PR, while merge, rollback, and production mutation stay policy-gated.
+- **Beyond crashes:** Sentry performance bottlenecks can become optimization work with p75/p95/p99, baseline, and regression context.
+
+## Live Flow
 
 Current live flow:
 
@@ -168,35 +178,9 @@ During diagnosis, the agent retrieves at most a few similar lessons and formats 
 
 Patchpilot also maps Sentry stack frames and prior memory to a small suspect-file list. The dispatch payload can include paths such as `src/main.tsx` with a confidence score and reason, so the repair worker starts with a narrow file set instead of scanning the whole repo by default.
 
-## Assignment 2 Mapping
+## Validation and Evaluation
 
-Assignment:
-
-> Build a real agent loop with multiple tools (>=3), state, error handling, observability, and a reproducible eval harness. LLM-driven tool selection. Clear tool schemas. Meaningful tools. Robust error handling and fallback. Eval harness with adversarial queries. Cost/latency tracking. Prompt ablation. Honest failure documentation.
-
-How this project maps:
-
-| Requirement | Status | Implementation |
-|---|---:|---|
-| Real agent loop | Yes | `agent:watch`, `agent:run`, and `agent:recover` implement GitHub issue intake, tool loop, repair dispatch, and verification. |
-| Multiple tools `>=3` | Yes | Sentry, GitHub Issues, GitHub dispatch, Vercel, severity calculator, health check, Sentry quieting. |
-| State | Yes | SQLite state in `src/state/sqlite-store.ts` stores incidents, runs, tool calls, decisions, metrics, eval results, recovery attempts, and compact incident memory. |
-| Error handling | Yes | Structured error codes, dry-run mode, redaction, fallback decisions, retry/wait/escalate/close recovery policy. |
-| Observability | Yes | JSON logs, SQLite traces, per-tool latency, decisions, estimated tokens/cost. |
-| Reproducible eval harness | Yes | `npm run eval` runs offline fixture-based scenarios without real provider secrets. |
-| Clear tool schemas | Yes | Tool definitions and schemas live in `src/agentic/tools.ts`. |
-| Meaningful tools | Yes | Tools operate on production incident systems rather than toy examples. |
-| Robust fallback | Yes | Non-production issues are ignored; weak evidence goes to human; Vercel failures do not crash eval path; recovery can wait/retry/escalate. |
-| Cost/latency tracking | Yes | `src/agentic/observability.ts` estimates tokens/cost and records latency metrics. |
-| Prompt ablation | Yes | Prompt variants live in `prompts/` and run with `npm run eval -- --ablation`. |
-| Honest failure docs | Yes | See `docs/FAILURES.md`. |
-| LLM-driven tool selection | Partial / honest | The offline Patchpilot harness uses deterministic tool-path simulation for reproducible evals. Live LLM-driven code repair happens inside Claude Code or OpenAI Codex GitHub Actions, where the repair worker chooses repo/search/edit/test tools. |
-
-The main improvement needed for a stricter interpretation of "LLM-driven tool selection" is adding a live model adapter to `agent:run --live` so Patchpilot itself chooses tools through an LLM rather than a deterministic policy.
-
-## Eval Harness
-
-The eval harness is offline by default. It does not require real Sentry, GitHub, Vercel, or Anthropic secrets.
+Patchpilot includes an offline eval harness so the incident loop can be tested without real Sentry, GitHub, Vercel, or model-provider secrets. The harness exercises production-like failure modes while keeping runs deterministic and safe.
 
 It covers adversarial and operational scenarios such as:
 
@@ -209,6 +193,7 @@ It covers adversarial and operational scenarios such as:
 - Low-confidence diagnosis chooses `needs_human`.
 - Repeated synthetic crashes retrieve prior memory while still using current Sentry evidence.
 - Repeated stack-frame crashes map directly to suspect files such as `src/main.tsx`.
+- Sentry performance bottlenecks are normalized, scored, synced to GitHub, and verified against threshold/baseline evidence.
 
 Run:
 
@@ -218,6 +203,8 @@ npm run eval -- --ablation
 ```
 
 The output includes pass/fail, selected tools, final decisions, latency, estimated cost, and failure reasons.
+
+This repo still documents its limitations honestly in `docs/FAILURES.md`. The short version: the local eval planner is deterministic, while live code repair is delegated to Claude Code or OpenAI Codex in the target repo where the repair worker chooses repo/search/edit/test tools.
 
 ## Setup
 
