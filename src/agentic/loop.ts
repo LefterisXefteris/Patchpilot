@@ -314,7 +314,7 @@ function buildAcceptedIssueComment(input: {
   suspectFileContext: string;
 }): string {
   return [
-    '## Back To Service Status',
+    '## Patchpilot Status',
     '',
     'Accepted this Sentry-created GitHub issue for diagnosis.',
     `Confidence: ${input.confidence}`,

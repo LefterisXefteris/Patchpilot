@@ -205,7 +205,7 @@ export function createIncidentTools(): AgentTool[] {
       outputSchema: objectSchema({
         dispatched: booleanSchema('Whether dispatch was sent.'),
         eventType: stringSchema('Repository dispatch event type.'),
-        repairProvider: stringSchema('Repair worker provider selected by Back To Service.'),
+        repairProvider: stringSchema('Repair worker provider selected by Patchpilot.'),
       }),
       execute: async (input, context) => {
         const repairProvider = context.config?.repair.provider ?? 'claude';
@@ -244,7 +244,7 @@ export function createIncidentTools(): AgentTool[] {
     },
     {
       name: 'github_add_agent_status_comment',
-      description: 'Add a lightweight Back To Service status comment to an existing GitHub incident issue.',
+      description: 'Add a lightweight Patchpilot status comment to an existing GitHub incident issue.',
       inputSchema: objectSchema(
         {
           issueNumber: numberSchema('GitHub incident issue number.'),

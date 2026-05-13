@@ -124,7 +124,7 @@ export function buildPerformanceIssueBody(
 
 export function buildPerformanceUpdateComment(bottleneck: SentryPerformanceBottleneck): string {
   return [
-    '## Back To Service Performance Update',
+    '## Patchpilot Performance Update',
     '',
     `Sentry still reports a production performance bottleneck for ${bottleneck.transaction}.`,
     `Span: ${bottleneck.spanOp} - ${bottleneck.spanDescription}`,
@@ -284,7 +284,7 @@ async function maybeDispatchPerformanceAgent(
 function buildPerformanceDispatchComment(bottleneck: SentryPerformanceBottleneck, config: AppConfig): string {
   const workerName = repairWorkerName(config);
   return [
-    `## Back To Service - ${workerName} queued`,
+    `## Patchpilot - ${workerName} queued`,
     '',
     `${workerName} was dispatched to open an optimization PR for this Sentry performance bottleneck.`,
     '',

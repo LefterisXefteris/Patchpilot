@@ -38,7 +38,7 @@ must_haves:
 ---
 
 <objective>
-Create the minimal TypeScript Node service foundation for Back To Service, including scripts, env documentation, source directories, test harness, and safety defaults for a credentials-heavy integration agent.
+Create the minimal TypeScript Node service foundation for Patchpilot, including scripts, env documentation, source directories, test harness, and safety defaults for a credentials-heavy integration agent.
 </objective>
 
 <threat_model>
@@ -73,7 +73,7 @@ Mitigations in this plan:
 </files>
 <action>
 Create `package.json` with:
-- `"name": "back-to-service"`
+- `"name": "patchpilot"`
 - `"version": "0.1.0"`
 - `"type": "module"`
 - scripts:
@@ -221,7 +221,7 @@ Create `src/types/integration-validation.ts` exporting:
 - `export type ValidationSummary = { ok: boolean; results: IntegrationValidationResult[]; };`
 
 Create `src/index.ts` exporting `main(argv = process.argv.slice(2))`. For now it must:
-- If first arg is not `validate-config`, print `Usage: back-to-service validate-config` and return exit code `1`.
+- If first arg is not `validate-config`, print `Usage: patchpilot validate-config` and return exit code `1`.
 - If first arg is `validate-config`, print JSON with `{ "ok": true, "results": [] }` and return exit code `0`.
 - If executed directly, call `main()` and set `process.exitCode`.
 
@@ -230,7 +230,7 @@ Create `tests/smoke.test.ts` with a Vitest test that calls `main(['validate-conf
 <verify>
 - `grep -F "export type ProviderName = 'sentry' | 'github' | 'vercel';" src/types/integration-validation.ts`
 - `grep -F "export async function main" src/index.ts`
-- `grep -F "Usage: back-to-service validate-config" src/index.ts`
+- `grep -F "Usage: patchpilot validate-config" src/index.ts`
 - `npm test -- tests/smoke.test.ts`
 </verify>
 <automated>true</automated>
@@ -240,7 +240,7 @@ Done when the validation result type, CLI entrypoint, and smoke test exist and t
 <acceptance_criteria>
 - `src/types/integration-validation.ts` contains `export type ProviderName = 'sentry' | 'github' | 'vercel';`.
 - `src/types/integration-validation.ts` contains `missingScopes?: string[]`.
-- `src/index.ts` contains `Usage: back-to-service validate-config`.
+- `src/index.ts` contains `Usage: patchpilot validate-config`.
 - `src/index.ts` contains `export async function main`.
 - `tests/smoke.test.ts` contains `expect(code).toBe(0)`.
 - `tests/smoke.test.ts` imports `main` from `../src/index`.

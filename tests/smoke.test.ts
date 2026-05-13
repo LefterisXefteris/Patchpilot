@@ -9,7 +9,7 @@ describe('main', () => {
     const code = await main([]);
 
     expect(code).toBe(1);
-    expect(log).toHaveBeenCalledWith('Usage: back-to-service <validate-config|agent:sync|agent:performance|agent:watch|agent:run|agent:recover|eval> [--apply] [--limit N] [--db PATH]');
+    expect(log).toHaveBeenCalledWith('Usage: patchpilot <validate-config|agent:sync|agent:performance|agent:watch|agent:run|agent:recover|eval> [--apply] [--limit N] [--db PATH]');
     log.mockRestore();
   });
 });

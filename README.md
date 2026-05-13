@@ -1,6 +1,6 @@
-# Back To Service
+# Patchpilot
 
-Back To Service is an AI production recovery agent for a configured target app.
+Patchpilot is an AI production recovery agent for a configured target app.
 
 It watches Sentry-created GitHub issues in the target repo, fetches linked Sentry evidence when needed, triggers a configured repair workflow, and verifies whether production recovered through Vercel, HTTP health checks, and Sentry quieting. It can also query Sentry performance data for production bottlenecks and open optimization PR work for human review.
 
@@ -21,22 +21,22 @@ Current live flow:
 ```text
 Sentry production error
 -> Sentry GitHub integration creates a GitHub issue in the target repo
--> Back To Service watches eligible Sentry-created GitHub issues
--> Back To Service dispatches the target repo Claude workflow
+-> Patchpilot watches eligible Sentry-created GitHub issues
+-> Patchpilot dispatches the target repo Claude workflow
 -> Claude Code investigates the target repo and proposes a patch
 -> Claude opens or updates a draft PR/branch
 -> Vercel deploys after the fix reaches production
--> Back To Service verifies recovery
--> Back To Service closes, waits, retries, or escalates the incident issue
+-> Patchpilot verifies recovery
+-> Patchpilot closes, waits, retries, or escalates the incident issue
 ```
 
 Performance intake uses a parallel conservative flow:
 
 ```text
 Sentry production spans / transactions
--> Back To Service finds slow or regressed bottlenecks
--> Back To Service creates or updates a GitHub performance incident issue
--> Back To Service dispatches the repair worker with p75/p95/p99 and baseline context
+-> Patchpilot finds slow or regressed bottlenecks
+-> Patchpilot creates or updates a GitHub performance incident issue
+-> Patchpilot dispatches the repair worker with p75/p95/p99 and baseline context
 -> The worker opens an optimization PR
 -> Humans review before merge by default
 ```
@@ -51,16 +51,16 @@ This is a guarded production recovery agent, not a reckless full-autopilot deplo
 - It updates accepted incident issues automatically.
 - It can trigger Claude Code automatically.
 - Claude can inspect, edit, test, build, and open a draft PR in the target repo.
-- Back To Service can verify recovery and close recovered incident issues.
+- Patchpilot can verify recovery and close recovered incident issues.
 - It does **not** auto-merge PRs by default.
 - It does **not** auto-rollback or mutate production infrastructure by default.
-- The live code repair worker can be Claude Code or OpenAI Codex through target-repo GitHub Actions. Back To Service orchestrates the incident loop and keeps the audit trail.
+- The live code repair worker can be Claude Code or OpenAI Codex through target-repo GitHub Actions. Patchpilot orchestrates the incident loop and keeps the audit trail.
 
 One important Vercel setting: if Vercel has **Require Verified Commits** enabled, bot/API commits may be canceled before build because they are unverified. For this agent flow, that setting should be off unless you implement signed bot commits.
 
 ## Tools
 
-Back To Service uses meaningful typed tools around real production systems:
+Patchpilot uses meaningful typed tools around real production systems:
 
 | Tool | Purpose |
 |---|---|
@@ -78,7 +78,7 @@ Back To Service uses meaningful typed tools around real production systems:
 | recovery health check | Verify the production URL responds with the expected status. |
 | recovery Sentry check | Verify the Sentry issue is quiet or resolved. |
 
-Claude Code then uses repo tools such as read, edit, search, `npm`, `git`, and `gh` inside the target repo workflow. When Back To Service can map Sentry frames to files, Claude is told to inspect those suspect files first and broaden search only if they do not explain the issue.
+Claude Code then uses repo tools such as read, edit, search, `npm`, `git`, and `gh` inside the target repo workflow. When Patchpilot can map Sentry frames to files, Claude is told to inspect those suspect files first and broaden search only if they do not explain the issue.
 
 ## Commands
 
@@ -160,13 +160,13 @@ npm run show:codex-workflow
 
 ## Incident Memory
 
-Back To Service stores compact SQLite memory for Sentry-backed GitHub incidents. Memory is advisory only: the current GitHub issue and current Sentry event remain authoritative.
+Patchpilot stores compact SQLite memory for Sentry-backed GitHub incidents. Memory is advisory only: the current GitHub issue and current Sentry event remain authoritative.
 
 The memory layer stores short redacted lessons such as stack signature, root-cause summary, fix summary, outcome, and confidence. It does not store full Sentry payloads, raw GitHub issue bodies, secrets, stack locals, or full tool outputs.
 
 During diagnosis, the agent retrieves at most a few similar lessons and formats them into a small "Relevant prior incidents" block. This reduces token use by replacing repeated old context with a compact hint, while still fetching current Sentry evidence.
 
-Back To Service also maps Sentry stack frames and prior memory to a small suspect-file list. The dispatch payload can include paths such as `src/main.tsx` with a confidence score and reason, so the repair worker starts with a narrow file set instead of scanning the whole repo by default.
+Patchpilot also maps Sentry stack frames and prior memory to a small suspect-file list. The dispatch payload can include paths such as `src/main.tsx` with a confidence score and reason, so the repair worker starts with a narrow file set instead of scanning the whole repo by default.
 
 ## Assignment 2 Mapping
 
@@ -190,9 +190,9 @@ How this project maps:
 | Cost/latency tracking | Yes | `src/agentic/observability.ts` estimates tokens/cost and records latency metrics. |
 | Prompt ablation | Yes | Prompt variants live in `prompts/` and run with `npm run eval -- --ablation`. |
 | Honest failure docs | Yes | See `docs/FAILURES.md`. |
-| LLM-driven tool selection | Partial / honest | The offline Back To Service harness uses deterministic tool-path simulation for reproducible evals. Live LLM-driven code repair happens inside Claude Code or OpenAI Codex GitHub Actions, where the repair worker chooses repo/search/edit/test tools. |
+| LLM-driven tool selection | Partial / honest | The offline Patchpilot harness uses deterministic tool-path simulation for reproducible evals. Live LLM-driven code repair happens inside Claude Code or OpenAI Codex GitHub Actions, where the repair worker chooses repo/search/edit/test tools. |
 
-The main improvement needed for a stricter interpretation of "LLM-driven tool selection" is adding a live model adapter to `agent:run --live` so Back To Service itself chooses tools through an LLM rather than a deterministic policy.
+The main improvement needed for a stricter interpretation of "LLM-driven tool selection" is adding a live model adapter to `agent:run --live` so Patchpilot itself chooses tools through an LLM rather than a deterministic policy.
 
 ## Eval Harness
 
@@ -258,7 +258,7 @@ The agent can run 24/7 through:
 
 It runs every 5 minutes because GitHub scheduled workflows are not suitable for 2-minute polling.
 
-Back To Service repo secrets:
+Patchpilot repo secrets:
 
 ```text
 SENTRY_AUTH_TOKEN
@@ -269,7 +269,7 @@ BTS_GITHUB_TARGET_INSTALLATION_ID
 VERCEL_TOKEN
 ```
 
-Back To Service repo variables:
+Patchpilot repo variables:
 
 ```text
 SENTRY_ORG_SLUG
@@ -324,7 +324,7 @@ Generate the template with:
 npm run show:codex-workflow
 ```
 
-Set `BTS_REPAIR_PROVIDER=codex` in the Back To Service environment so dispatch uses the Codex-specific repository event.
+Set `BTS_REPAIR_PROVIDER=codex` in the Patchpilot environment so dispatch uses the Codex-specific repository event.
 
 The target repo also needs the matching provider secret:
 
@@ -369,7 +369,7 @@ See `docs/FAILURES.md`.
 
 The short version:
 
-- Back To Service's local eval planner is deterministic today.
+- Patchpilot's local eval planner is deterministic today.
 - Live LLM repair is delegated to the configured target-repo repair workflow: Claude Code by default, or OpenAI Codex when `BTS_REPAIR_PROVIDER=codex`.
 - Auto-merge is intentionally disabled.
 - Sentry source-map/release-to-commit correlation is future work.

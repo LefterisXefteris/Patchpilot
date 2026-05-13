@@ -76,7 +76,7 @@ const server = createServer(async (request, response) => {
 });
 
 server.listen(PORT, HOST, () => {
-  console.log(`Back To Service setup UI: http://${HOST}:${PORT}`);
+  console.log(`Patchpilot setup UI: http://${HOST}:${PORT}`);
 });
 
 function configPayload(): { values: EnvFileData; secretStatus: Record<string, boolean> } {

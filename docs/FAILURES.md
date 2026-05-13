@@ -1,6 +1,6 @@
 # Honest Failure Documentation
 
-Back To Service is currently an assignment-grade production-agent demo, not a fully autonomous recovery system.
+Patchpilot is currently an assignment-grade production-agent demo, not a fully autonomous recovery system.
 
 ## Known Limitations
 

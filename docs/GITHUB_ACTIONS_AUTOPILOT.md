@@ -1,20 +1,20 @@
 # GitHub Actions Autopilot
 
-Back To Service can run from GitHub Actions so it does not depend on a laptop.
+Patchpilot can run from GitHub Actions so it does not depend on a laptop.
 
 ## Flow
 
 ```text
 GitHub schedule every 5 minutes
 -> Sentry GitHub integration has already created GitHub issues in the target repo
--> Back To Service watches eligible Sentry-created issues
+-> Patchpilot watches eligible Sentry-created issues
 -> Target repo repair workflow starts Claude or Codex
 -> Repair worker opens a draft PR
 ```
 
 GitHub Actions scheduled workflows are not a good fit for 2 minute polling. The workflow uses 5 minutes as a safety net around Sentry-created GitHub issues; immediate repair can still happen through the target repo `issues.opened` trigger.
 
-## Back To Service Repo Setup
+## Patchpilot Repo Setup
 
 Add the workflow:
 
@@ -22,7 +22,7 @@ Add the workflow:
 .github/workflows/back-to-service-poll.yml
 ```
 
-Add these repository secrets in the Back To Service repo:
+Add these repository secrets in the Patchpilot repo:
 
 ```text
 SENTRY_AUTH_TOKEN
@@ -33,7 +33,7 @@ BTS_GITHUB_TARGET_INSTALLATION_ID
 VERCEL_TOKEN
 ```
 
-Add these repository variables in the Back To Service repo:
+Add these repository variables in the Patchpilot repo:
 
 ```text
 SENTRY_ORG_SLUG
@@ -86,7 +86,7 @@ Use:
 npm run show:codex-workflow
 ```
 
-Then set this in the Back To Service repo environment:
+Then set this in the Patchpilot repo environment:
 
 ```text
 BTS_REPAIR_PROVIDER=codex
@@ -103,9 +103,9 @@ Use `ANTHROPIC_API_KEY` for Claude or `OPENAI_API_KEY` for Codex.
 
 ## Existing Issues
 
-The schedule should avoid repeatedly dispatching the same existing issue because that would spam Claude. Back To Service records accepted issues and uses GitHub issue comments as the visible audit trail.
+The schedule should avoid repeatedly dispatching the same existing issue because that would spam Claude. Patchpilot records accepted issues and uses GitHub issue comments as the visible audit trail.
 
-For a one-off retry, run the Back To Service workflow manually with:
+For a one-off retry, run the Patchpilot workflow manually with:
 
 ```text
 redispatch=true
