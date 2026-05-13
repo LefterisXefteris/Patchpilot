@@ -33,7 +33,7 @@ class RecordingSecretStore implements SecretStore {
 
 describe('env config', () => {
   it('loads valid config', async () => {
-    const config = await loadConfigFromEnv(validEnv);
+    const config = await loadConfigFromEnv({ ...validEnv, POSTHOG_ENABLED: 'true' });
 
     expect(config.sentry.orgSlug).toBe('acme');
     expect(config.github.privateKey).toBe('github-private-key');
@@ -42,6 +42,8 @@ describe('env config', () => {
     expect(config.vercel.projectId).toBe('prj_123');
     expect(config.performance.enabled).toBe(true);
     expect(config.performance.allowedOps).toContain('db');
+    expect(config.posthog.enabled).toBe(true);
+    expect(config.posthog.impactEvents).toContain('checkout_completed');
     expect(config.repair.provider).toBe('claude');
     expect(config.autopilot.allowRecoveryHook).toBe(true);
   });

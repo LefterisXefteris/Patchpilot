@@ -2,7 +2,7 @@
 
 ## What This Is
 
-Patchpilot is an AI production recovery agent for teams using Sentry, GitHub, and Vercel. It starts from Sentry-created GitHub issues for errors, can also query Sentry performance data for production bottlenecks, diagnoses the likely root cause, patches the target repository, opens and manages a pull request, follows the existing GitHub-to-Vercel deployment flow, and verifies that production recovers or performance improves.
+Patchpilot is an AI production recovery agent for teams using Sentry, GitHub, Vercel, and optional PostHog product analytics. It starts from Sentry-created GitHub issues for errors, can also query Sentry performance data for production bottlenecks, adds product-impact context from configured PostHog events, diagnoses the likely root cause, patches the target repository, opens and manages a pull request, follows the existing GitHub-to-Vercel deployment flow, and verifies that production recovers or performance improves.
 
 The long-term ambition is full autopilot: when confidence is high and policy allows it, the agent can patch, merge, deploy, and recover production without waiting for a human. The initial stack target is Sentry + GitHub + Vercel.
 
@@ -20,6 +20,7 @@ Production errors should move from detection to verified recovery with as little
 
 - [ ] Watch Sentry-created GitHub issues and decide whether they require recovery action.
 - [ ] Query Sentry performance spans/transactions and open conservative optimization work for production bottlenecks.
+- [ ] Add PostHog product-impact context so incidents can show whether configured product events changed during the incident window.
 - [ ] Add agent status and diagnosis updates to existing GitHub issues with Sentry context, severity, affected users, logs, and evidence.
 - [ ] Diagnose likely root cause by combining Sentry events, stack traces, Vercel deployments, commits, and repository context.
 - [ ] Prefer a patch-first recovery path: produce a code fix, run verification, open a pull request, merge when confidence and policy gates pass, and deploy through Vercel.
@@ -44,6 +45,7 @@ The target product behavior is autopilot, not only advisory. The agent should ac
 The initial ecosystem is:
 
 - **Sentry** for production error detection, issue/event details, stack traces, affected users, performance spans/transactions, and alert triggers.
+- **PostHog** for optional product-impact context around signups, checkouts, purchases, and other configured business events.
 - **GitHub** for issues, pull requests, branches, checks, reviews, audit history, and source control.
 - **Vercel** for deployments, production promotion, deployment logs, health state, and rollback.
 
@@ -66,6 +68,7 @@ The initial ecosystem is:
 | Keep GitHub Issues as the visible incident record | User described Sentry logs on GitHub issues; this keeps the workflow where engineers already work. | - Pending |
 | Use Sentry's GitHub integration for first issue creation | Avoids wasting agent work on a workflow Sentry can already handle. | Accepted 2026-05-10 |
 | Treat performance bottlenecks as conservative incidents | Slow production paths deserve agent diagnosis and optimization PRs, but merge should remain human-gated by default. | Accepted 2026-05-13 |
+| Add PostHog as optional impact context | Product analytics helps distinguish technical noise from user/business impact without making PostHog required for recovery. | Accepted 2026-05-13 |
 | Require explicit safety policy despite autopilot | Production mutation needs confidence gates, audit logs, and emergency stop to be trustworthy. | - Pending |
 
 ## Evolution

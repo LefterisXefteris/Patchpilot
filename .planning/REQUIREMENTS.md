@@ -13,6 +13,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **CONF-02**: User can configure a GitHub repository through a least-privilege GitHub App or token.
 - [ ] **CONF-03**: User can configure a Vercel project/team for deployment lookup, deployment monitoring, and rollback fallback.
 - [ ] **CONF-04**: User can define autopilot policy including confidence threshold, protected paths, allowed actions, and emergency stop.
+- [ ] **CONF-05**: User can optionally configure PostHog host, project, personal API key, impact events, and comparison windows.
 
 ### Incident Intake
 
@@ -22,6 +23,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **INCD-04**: Agent deduplicates GitHub issue and Sentry issue pairs into one active recovery workflow.
 - [ ] **INCD-05**: Agent queries Sentry production spans/transactions for slow or regressed performance bottlenecks.
 - [ ] **INCD-06**: Agent creates or updates GitHub performance incident issues with p75/p95/p99, sample count, baseline/current comparison, and trace links when available.
+- [ ] **INCD-07**: Agent enriches accepted Sentry incidents and performance bottlenecks with PostHog product-impact event counts when configured.
 
 ### GitHub Issues
 
@@ -29,6 +31,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **GHI-02**: Agent updates the existing GitHub issue as intake acceptance, diagnosis, PR, deployment, verification, and fallback actions progress.
 - [ ] **GHI-03**: Agent recognizes stable labels/title/body patterns for state, severity, source, confidence, and autopilot action.
 - [ ] **GHI-04**: Agent records all autonomous decisions and actions as auditable GitHub issue comments.
+- [ ] **GHI-05**: Agent includes a redacted Product Impact section in GitHub issues/comments when PostHog context is available.
 
 ### Diagnosis
 

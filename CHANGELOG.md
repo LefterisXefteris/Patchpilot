@@ -9,6 +9,7 @@ Patchpilot can now demonstrate the core production recovery loop:
 - Open draft PRs instead of merging automatically.
 - Verify recovery through Vercel deployment state, HTTP health checks, and Sentry quieting.
 - Detect Sentry performance bottlenecks from spans/transactions and create optimization work.
+- Add optional PostHog product-impact context for configured business events.
 - Store compact incident memory and suspect-file hints for future diagnoses.
 - Keep autonomous behavior policy-gated, redacted, and auditable.
 

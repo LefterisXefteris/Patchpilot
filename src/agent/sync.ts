@@ -1,6 +1,11 @@
 import type { AppConfig } from '../config/schema.js';
 import { isActionAllowed } from '../policy/autopilot-policy.js';
 import { GitHubIssueSyncClient } from '../providers/github/issues.js';
+import {
+  formatProductImpactMarkdown,
+  PostHogImpactClient,
+  type ProductImpactSummary,
+} from '../providers/posthog/impact.js';
 import { SentryIssuesClient, type SentryIssueSummary } from '../providers/sentry/issues.js';
 
 export type AgentSyncOptions = {
@@ -30,10 +35,12 @@ export type AgentSyncSummary = {
 
 type SentryIssuesPort = Pick<SentryIssuesClient, 'listUnresolvedProductionIssues'>;
 type GitHubIssuesPort = Pick<GitHubIssueSyncClient, 'findIssueByMarker' | 'createIssue' | 'addIssueComment' | 'createRepositoryDispatch'>;
+type ProductImpactPort = Pick<PostHogImpactClient, 'summarizeProductImpact'>;
 
 export type AgentSyncDependencies = {
   sentry?: SentryIssuesPort;
   github?: GitHubIssuesPort;
+  productImpact?: ProductImpactPort;
 };
 
 export async function runAgentSync(
@@ -45,20 +52,22 @@ export async function runAgentSync(
 
   const sentry = deps.sentry ?? new SentryIssuesClient(config.sentry);
   const github = deps.github ?? new GitHubIssueSyncClient(config.github);
+  const productImpact = deps.productImpact ?? new PostHogImpactClient(config.posthog);
   const dryRun = !options.apply;
   const issues = await sentry.listUnresolvedProductionIssues(options.limit ?? 10);
   const results: AgentSyncIssueResult[] = [];
 
   for (const issue of issues) {
+    const impact = await maybeSummarizeProductImpact(productImpact, issue.lastSeen);
     const marker = sentryIssueMarker(issue.id);
     const existing = await github.findIssueByMarker(marker);
 
     if (existing) {
-      results.push(await syncExistingIssue(config, github, issue, marker, existing, dryRun, Boolean(options.redispatch)));
+      results.push(await syncExistingIssue(config, github, issue, marker, existing, dryRun, Boolean(options.redispatch), impact));
       continue;
     }
 
-    results.push(await syncNewIssue(config, github, issue, marker, dryRun));
+    results.push(await syncNewIssue(config, github, issue, marker, dryRun, impact));
   }
 
   return {
@@ -88,7 +97,11 @@ export function buildIssueTitle(issue: SentryIssueSummary): string {
   return `[Sentry ${issue.shortId}] ${issue.title}`;
 }
 
-export function buildIssueBody(issue: SentryIssueSummary, marker = sentryIssueMarker(issue.id)): string {
+export function buildIssueBody(
+  issue: SentryIssueSummary,
+  marker = sentryIssueMarker(issue.id),
+  productImpact?: ProductImpactSummary,
+): string {
   return [
     marker,
     '',
@@ -105,6 +118,8 @@ export function buildIssueBody(issue: SentryIssueSummary, marker = sentryIssueMa
     `**Culprit:** ${issue.culprit ?? 'unknown'}`,
     issue.permalink ? `**Sentry link:** ${issue.permalink}` : undefined,
     '',
+    ...formatProductImpactMarkdown(productImpact),
+    productImpact ? '' : undefined,
     '## Agent Status',
     '',
     '- Intake: detected',
@@ -116,7 +131,7 @@ export function buildIssueBody(issue: SentryIssueSummary, marker = sentryIssueMa
     .join('\n');
 }
 
-export function buildIssueComment(issue: SentryIssueSummary): string {
+export function buildIssueComment(issue: SentryIssueSummary, productImpact?: ProductImpactSummary): string {
   return [
     '## Patchpilot Update',
     '',
@@ -124,7 +139,11 @@ export function buildIssueComment(issue: SentryIssueSummary): string {
     `Last seen: ${issue.lastSeen ?? 'unknown'}`,
     `Events: ${issue.count ?? 'unknown'}`,
     `Users affected: ${issue.userCount ?? 0}`,
-  ].join('\n');
+    '',
+    ...formatProductImpactMarkdown(productImpact),
+  ]
+    .filter((line): line is string => line !== undefined)
+    .join('\n');
 }
 
 function baseResult(issue: SentryIssueSummary, marker: string) {
@@ -144,6 +163,7 @@ async function syncExistingIssue(
   existing: { number: number; htmlUrl?: string },
   dryRun: boolean,
   redispatch: boolean,
+  productImpact: ProductImpactSummary | undefined,
 ): Promise<AgentSyncIssueResult> {
   if (dryRun) {
     return {
@@ -166,10 +186,10 @@ async function syncExistingIssue(
     };
   }
 
-  await github.addIssueComment(existing.number, buildIssueComment(issue));
+  await github.addIssueComment(existing.number, buildIssueComment(issue, productImpact));
 
   const claudeDispatch = redispatch
-    ? await maybeDispatchClaude(config, github, issue, existing.number, existing.htmlUrl, dryRun)
+    ? await maybeDispatchClaude(config, github, issue, existing.number, existing.htmlUrl, dryRun, productImpact)
     : 'skipped';
 
   return {
@@ -187,6 +207,7 @@ async function syncNewIssue(
   issue: SentryIssueSummary,
   marker: string,
   dryRun: boolean,
+  productImpact: ProductImpactSummary | undefined,
 ): Promise<AgentSyncIssueResult> {
   if (dryRun) {
     return {
@@ -207,9 +228,9 @@ async function syncNewIssue(
 
   const created = await github.createIssue({
     title: buildIssueTitle(issue),
-    body: buildIssueBody(issue, marker),
+    body: buildIssueBody(issue, marker, productImpact),
   });
-  const claudeDispatch = await maybeDispatchClaude(config, github, issue, created.number, created.htmlUrl, dryRun);
+  const claudeDispatch = await maybeDispatchClaude(config, github, issue, created.number, created.htmlUrl, dryRun, productImpact);
 
   return {
     ...baseResult(issue, marker),
@@ -242,6 +263,17 @@ export function buildRepairDispatchComment(issue: SentryIssueSummary, config: Ap
 
 export const buildClaudeDispatchComment = buildRepairDispatchComment;
 
+async function maybeSummarizeProductImpact(
+  productImpact: ProductImpactPort,
+  anchorTime: string | undefined,
+): Promise<ProductImpactSummary | undefined> {
+  try {
+    return await productImpact.summarizeProductImpact({ anchorTime });
+  } catch {
+    return undefined;
+  }
+}
+
 async function maybeDispatchClaude(
   config: AppConfig,
   github: GitHubIssuesPort,
@@ -249,6 +281,7 @@ async function maybeDispatchClaude(
   githubIssueNumber: number,
   githubIssueUrl: string | undefined,
   dryRun: boolean,
+  productImpact: ProductImpactSummary | undefined,
 ): Promise<NonNullable<AgentSyncIssueResult['claudeDispatch']>> {
   if (dryRun) {
     return 'would_dispatch';
@@ -265,6 +298,7 @@ async function maybeDispatchClaude(
     issueUrl: githubIssueUrl,
     title: issue.title,
     marker: sentryIssueMarker(issue.id),
+    productImpact,
     repairProvider: config.repair.provider,
   });
   await github.addIssueComment(githubIssueNumber, buildRepairDispatchComment(issue, config));

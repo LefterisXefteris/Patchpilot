@@ -2,6 +2,11 @@ import { assertTargetRepositoryConfigured, repairDispatchEvent, repairWorkerName
 import type { AppConfig } from '../config/schema.js';
 import { isActionAllowed } from '../policy/autopilot-policy.js';
 import { GitHubIssueSyncClient } from '../providers/github/issues.js';
+import {
+  formatProductImpactMarkdown,
+  PostHogImpactClient,
+  type ProductImpactSummary,
+} from '../providers/posthog/impact.js';
 import { SentryPerformanceClient, type SentryPerformanceBottleneck } from '../providers/sentry/performance.js';
 
 export type AgentPerformanceOptions = {
@@ -35,10 +40,12 @@ type GitHubPerformancePort = Pick<
   GitHubIssueSyncClient,
   'findIssueByMarker' | 'createIssue' | 'addIssueComment' | 'addIssueLabels' | 'createRepositoryDispatch'
 >;
+type ProductImpactPort = Pick<PostHogImpactClient, 'summarizeProductImpact'>;
 
 export type AgentPerformanceDependencies = {
   sentry?: SentryPerformancePort;
   github?: GitHubPerformancePort;
+  productImpact?: ProductImpactPort;
 };
 
 export async function runAgentPerformanceSync(
@@ -55,18 +62,20 @@ export async function runAgentPerformanceSync(
 
   const sentry = deps.sentry ?? new SentryPerformanceClient(config.sentry, config.performance);
   const github = deps.github ?? new GitHubIssueSyncClient(config.github);
+  const productImpact = deps.productImpact ?? new PostHogImpactClient(config.posthog);
   const bottlenecks = await sentry.listProductionBottlenecks({ limit: options.limit ?? 10 });
   const results: AgentPerformanceResult[] = [];
 
   for (const bottleneck of bottlenecks) {
+    const impact = await maybeSummarizeProductImpact(productImpact);
     const marker = sentryPerformanceMarker(bottleneck.fingerprint);
     const existing = await github.findIssueByMarker(marker);
     if (existing) {
-      results.push(await syncExistingPerformanceIssue(config, github, bottleneck, existing, dryRun, Boolean(options.redispatch)));
+      results.push(await syncExistingPerformanceIssue(config, github, bottleneck, existing, dryRun, Boolean(options.redispatch), impact));
       continue;
     }
 
-    results.push(await syncNewPerformanceIssue(config, github, bottleneck, marker, dryRun));
+    results.push(await syncNewPerformanceIssue(config, github, bottleneck, marker, dryRun, impact));
   }
 
   return {
@@ -89,6 +98,7 @@ export function buildPerformanceIssueTitle(bottleneck: SentryPerformanceBottlene
 export function buildPerformanceIssueBody(
   bottleneck: SentryPerformanceBottleneck,
   marker = sentryPerformanceMarker(bottleneck.fingerprint),
+  productImpact?: ProductImpactSummary,
 ): string {
   return [
     marker,
@@ -111,6 +121,8 @@ export function buildPerformanceIssueBody(
     bottleneck.release ? `**Release:** ${bottleneck.release}` : undefined,
     bottleneck.permalink ? `**Sentry trace search:** ${bottleneck.permalink}` : undefined,
     '',
+    ...formatProductImpactMarkdown(productImpact),
+    productImpact ? '' : undefined,
     '## Agent Status',
     '',
     '- Intake: performance bottleneck detected',
@@ -122,7 +134,10 @@ export function buildPerformanceIssueBody(
     .join('\n');
 }
 
-export function buildPerformanceUpdateComment(bottleneck: SentryPerformanceBottleneck): string {
+export function buildPerformanceUpdateComment(
+  bottleneck: SentryPerformanceBottleneck,
+  productImpact?: ProductImpactSummary,
+): string {
   return [
     '## Patchpilot Performance Update',
     '',
@@ -132,6 +147,8 @@ export function buildPerformanceUpdateComment(bottleneck: SentryPerformanceBottl
     `Current p95: ${Math.round(bottleneck.p95Ms)}ms`,
     bottleneck.baselineP95Ms != null ? `Baseline p95: ${Math.round(bottleneck.baselineP95Ms)}ms` : undefined,
     bottleneck.regressionRatio != null ? `Regression ratio: ${bottleneck.regressionRatio}x` : undefined,
+    '',
+    ...formatProductImpactMarkdown(productImpact),
   ]
     .filter((line): line is string => line !== undefined)
     .join('\n');
@@ -157,6 +174,7 @@ async function syncExistingPerformanceIssue(
   existing: { number: number; htmlUrl?: string },
   dryRun: boolean,
   redispatch: boolean,
+  productImpact: ProductImpactSummary | undefined,
 ): Promise<AgentPerformanceResult> {
   if (dryRun) {
     return {
@@ -179,11 +197,11 @@ async function syncExistingPerformanceIssue(
     };
   }
 
-  await github.addIssueComment(existing.number, buildPerformanceUpdateComment(bottleneck));
+  await github.addIssueComment(existing.number, buildPerformanceUpdateComment(bottleneck, productImpact));
   await github.addIssueLabels(existing.number, performanceIssueLabels(bottleneck));
 
   const agentDispatch = redispatch
-    ? await maybeDispatchPerformanceAgent(config, github, bottleneck, existing.number, existing.htmlUrl, dryRun)
+    ? await maybeDispatchPerformanceAgent(config, github, bottleneck, existing.number, existing.htmlUrl, dryRun, productImpact)
     : 'skipped';
 
   return {
@@ -201,6 +219,7 @@ async function syncNewPerformanceIssue(
   bottleneck: SentryPerformanceBottleneck,
   marker: string,
   dryRun: boolean,
+  productImpact: ProductImpactSummary | undefined,
 ): Promise<AgentPerformanceResult> {
   if (dryRun) {
     return { ...baseResult(bottleneck), action: 'would_create_issue', agentDispatch: 'would_dispatch' };
@@ -217,14 +236,14 @@ async function syncNewPerformanceIssue(
 
   const created = await github.createIssue({
     title: buildPerformanceIssueTitle(bottleneck),
-    body: buildPerformanceIssueBody(bottleneck, marker),
+    body: buildPerformanceIssueBody(bottleneck, marker, productImpact),
   });
 
   if (isActionAllowed(config.autopilot, 'update_issue')) {
     await github.addIssueLabels(created.number, performanceIssueLabels(bottleneck));
   }
 
-  const agentDispatch = await maybeDispatchPerformanceAgent(config, github, bottleneck, created.number, created.htmlUrl, dryRun);
+  const agentDispatch = await maybeDispatchPerformanceAgent(config, github, bottleneck, created.number, created.htmlUrl, dryRun, productImpact);
 
   return {
     ...baseResult(bottleneck),
@@ -242,6 +261,7 @@ async function maybeDispatchPerformanceAgent(
   githubIssueNumber: number,
   githubIssueUrl: string | undefined,
   dryRun: boolean,
+  productImpact: ProductImpactSummary | undefined,
 ): Promise<NonNullable<AgentPerformanceResult['agentDispatch']>> {
   if (dryRun) {
     return 'would_dispatch';
@@ -259,6 +279,7 @@ async function maybeDispatchPerformanceAgent(
     title: buildPerformanceIssueTitle(bottleneck),
     marker: sentryPerformanceMarker(bottleneck.fingerprint),
     repairProvider: config.repair.provider,
+    productImpact,
     performance: {
       transaction: bottleneck.transaction,
       spanOp: bottleneck.spanOp,
@@ -279,6 +300,14 @@ async function maybeDispatchPerformanceAgent(
   await github.addIssueComment(githubIssueNumber, buildPerformanceDispatchComment(bottleneck, config));
 
   return 'dispatched';
+}
+
+async function maybeSummarizeProductImpact(productImpact: ProductImpactPort): Promise<ProductImpactSummary | undefined> {
+  try {
+    return await productImpact.summarizeProductImpact();
+  } catch {
+    return undefined;
+  }
 }
 
 function buildPerformanceDispatchComment(bottleneck: SentryPerformanceBottleneck, config: AppConfig): string {

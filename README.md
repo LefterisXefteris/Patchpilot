@@ -1,8 +1,8 @@
 # Patchpilot
 
-Patchpilot is an AI production recovery agent for a configured target app. It turns production failures and performance regressions into reviewed code changes, with GitHub as the audit trail and Sentry/Vercel as the evidence loop.
+Patchpilot is an AI production recovery agent for a configured target app. It turns production failures and performance regressions into reviewed code changes, with GitHub as the audit trail and Sentry/Vercel/PostHog as the evidence loop.
 
-The impact goal is simple: shorten the path from "production is broken or slow" to "a fix PR is ready, verified, and traceable." Patchpilot watches Sentry-created GitHub issues in the target repo, fetches linked Sentry evidence when needed, triggers a configured repair workflow, and verifies whether production recovered through Vercel, HTTP health checks, and Sentry quieting. It can also query Sentry performance data for production bottlenecks and open optimization PR work for human review.
+The impact goal is simple: shorten the path from "production is broken or slow" to "a fix PR is ready, verified, and traceable." Patchpilot watches Sentry-created GitHub issues in the target repo, fetches linked Sentry evidence when needed, adds optional PostHog product-impact context, triggers a configured repair workflow, and verifies whether production recovered through Vercel, HTTP health checks, and Sentry quieting. It can also query Sentry performance data for production bottlenecks and open optimization PR work for human review.
 
 ![Patchpilot recovery flow](docs/assets/patchpilot-flow.svg)
 
@@ -22,9 +22,10 @@ Production incidents usually scatter attention across dashboards, issue threads,
 
 - **Faster recovery:** eligible production incidents are accepted, diagnosed, and handed to a repair worker automatically.
 - **Lower toil:** engineers review a focused PR instead of starting from a blank incident thread.
-- **Better auditability:** every incident update, dispatch, verification result, and recovery decision is written back to GitHub.
+- **Better auditability:** every incident update, product-impact summary, dispatch, verification result, and recovery decision is written back to GitHub.
 - **Safer autonomy:** Patchpilot can act up to a draft PR, while merge, rollback, and production mutation stay policy-gated.
 - **Beyond crashes:** Sentry performance bottlenecks can become optimization work with p75/p95/p99, baseline, and regression context.
+- **Business context:** PostHog impact events, such as signup or checkout completion, show whether a technical incident coincided with product pain.
 
 ## Live Flow
 
@@ -82,6 +83,7 @@ Patchpilot uses meaningful typed tools around real production systems:
 | `sentry_list_issues` | Legacy fallback for unresolved production Sentry polling. |
 | `sentry_get_issue_event` | Fetch event evidence for diagnosis/evals. |
 | Sentry performance intake | Query production spans for slow or regressed bottlenecks. |
+| PostHog product impact | Query configured product events and compare incident-window volume against a baseline. |
 | `github_find_or_create_incident_issue` | Deduplicate and record incidents in GitHub Issues. |
 | `github_repository_dispatch_claude` | Trigger the configured repair worker in the target repo. |
 | `vercel_get_latest_production_deployment` | Check the target production deployment. |
@@ -191,6 +193,21 @@ During diagnosis, the agent retrieves at most a few similar lessons and formats 
 
 Patchpilot also maps Sentry stack frames and prior memory to a small suspect-file list. The dispatch payload can include paths such as `src/main.tsx` with a confidence score and reason, so the repair worker starts with a narrow file set instead of scanning the whole repo by default.
 
+## Product Impact
+
+Patchpilot can optionally query PostHog through the [PostHog Query API](https://posthog.com/docs/api/query) using a personal API key with `query:read` scope. It runs read-only HogQL queries for configured product events, such as `signup_completed`, `checkout_completed`, or `purchase_completed`.
+
+For each Sentry incident or performance bottleneck, Patchpilot can add:
+
+- Current incident-window event volume.
+- Baseline event volume from the previous window.
+- Unique actor counts.
+- Absolute and percentage delta.
+- A Markdown Product Impact section in GitHub issues/comments.
+- Structured `productImpact` context in repair-worker dispatch payloads.
+
+This does not decide root cause by itself. It gives the repair worker and reviewer a sharper sense of product severity.
+
 ## Validation and Evaluation
 
 Patchpilot includes an offline eval harness so the incident loop can be tested without real Sentry, GitHub, Vercel, or model-provider secrets. The harness exercises production-like failure modes while keeping runs deterministic and safe.
@@ -207,6 +224,7 @@ It covers adversarial and operational scenarios such as:
 - Repeated synthetic crashes retrieve prior memory while still using current Sentry evidence.
 - Repeated stack-frame crashes map directly to suspect files such as `src/main.tsx`.
 - Sentry performance bottlenecks are normalized, scored, synced to GitHub, and verified against threshold/baseline evidence.
+- PostHog product-impact context is queried, normalized, and attached to incident issues and repair dispatches when enabled.
 
 Run:
 
@@ -232,6 +250,7 @@ Required local/provider configuration:
 - Sentry GitHub integration configured in the target repo to create incident issues.
 - Sentry token, org slug, project slug, environment, and region URL for evidence lookup.
 - Optional Sentry performance intake config: `PERF_ENABLED`, `PERF_MIN_SAMPLE_COUNT`, `PERF_P95_THRESHOLD_MS`, `PERF_REGRESSION_RATIO`, and `PERF_ALLOWED_OPS`.
+- Optional PostHog product impact config: `POSTHOG_ENABLED`, `POSTHOG_PERSONAL_API_KEY`, `POSTHOG_PROJECT_ID`, `POSTHOG_HOST`, `POSTHOG_IMPACT_EVENTS`, `POSTHOG_IMPACT_WINDOW_HOURS`, and `POSTHOG_IMPACT_BASELINE_HOURS`.
 - GitHub App ID, private key, installation ID, agent repo, and target repo.
 - Vercel token, team ID, agent project ID, and target Vercel project ID.
 - Target production URL for recovery verification.

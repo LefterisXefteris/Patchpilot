@@ -48,3 +48,4 @@ Sentry spans / transactions
 - Draft PRs contain the proposed code change and verification output.
 - Policy prevents merge, rollback, deploy, or recovery hooks unless explicitly allowed.
 - Redaction prevents secrets and sensitive payload data from becoming public audit artifacts.
+- Optional PostHog product impact shows whether configured events, such as signups or checkouts, changed during the incident window.
