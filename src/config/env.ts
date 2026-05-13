@@ -140,6 +140,15 @@ export async function loadConfig(
       needsHumanLabel: env.BTS_RECOVERY_NEEDS_HUMAN_LABEL ?? 'needs-human',
       resolvedLabel: env.BTS_RECOVERY_RESOLVED_LABEL ?? 'auto-recovery-resolved',
     },
+    performance: {
+      enabled: parseBoolean(env.PERF_ENABLED, false),
+      minSampleCount: parseNumber(env.PERF_MIN_SAMPLE_COUNT, 20),
+      p95ThresholdMs: parseNumber(env.PERF_P95_THRESHOLD_MS, 1_000),
+      regressionRatio: parseNumber(env.PERF_REGRESSION_RATIO, 1.5),
+      allowedOps: parseCsv(env.PERF_ALLOWED_OPS).length
+        ? parseCsv(env.PERF_ALLOWED_OPS)
+        : ['http.server', 'db', 'http.client', 'navigation'],
+    },
     repair: {
       provider: env.BTS_REPAIR_PROVIDER ?? 'claude',
     },

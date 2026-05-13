@@ -6,7 +6,7 @@
 
 ## Lean Direction
 
-Back To Service now assumes Sentry's GitHub integration owns first-line incident intake and basic GitHub issue creation. The agent starts from existing Sentry-created GitHub issues, enriches them only when needed, diagnoses root cause, creates patch PRs, verifies recovery, and later proposes improvements to itself.
+Back To Service now assumes Sentry's GitHub integration owns first-line error intake and basic GitHub issue creation. The agent starts from existing Sentry-created GitHub issues for fatal/error incidents, and separately can query Sentry performance data for production bottlenecks that deserve conservative optimization PRs. It enriches incidents only when needed, diagnoses root cause, creates patch PRs, verifies recovery or improvement, and later proposes improvements to itself.
 
 This avoids spending agent effort on workflows Sentry and GitHub already cover.
 
@@ -15,8 +15,8 @@ This avoids spending agent effort on workflows Sentry and GitHub already cover.
 | Phase | Name | Goal | UI hint |
 |-------|------|------|---------|
 | 1 | Integration Foundation | Configure least-privilege GitHub, Sentry evidence lookup, Vercel verification, secrets, and autopilot policy. | no |
-| 2 | GitHub Issue Watcher | Watch Sentry-created GitHub issues and accept eligible production incidents for diagnosis. | no |
-| 3 | Diagnosis Engine | Correlate linked Sentry evidence with repository and Vercel deployment context to produce patch plans. | no |
+| 2 | GitHub Issue Watcher and Performance Intake | Watch Sentry-created GitHub issues and query Sentry performance bottlenecks for eligible production incidents. | no |
+| 3 | Diagnosis Engine | Correlate linked Sentry evidence or performance metrics with repository and Vercel deployment context to produce patch plans. | no |
 | 4 | Patch PR Loop | Create scoped branches, fixes, checks, and incident-linked PRs. | no |
 | 5 | Verify and Recover | Track deployments, verify recovery, and use allowed fallbacks only when policy permits. | no |
 | 6 | Guardrails and Audit | Make autonomous production mutation observable, reversible, redacted, and policy-bound. | no |
@@ -42,7 +42,8 @@ This avoids spending agent effort on workflows Sentry and GitHub already cover.
 1. The watcher reads target-repo GitHub issues and parses Sentry markers, short IDs, or permalinks.
 2. It accepts production Sentry issues with labels/title/body evidence or manual diagnosis approval.
 3. It ignores issues without Sentry evidence, non-production issues, and duplicates in the same batch.
-4. Accepted issues get a lightweight Back To Service status comment and optional repair-worker dispatch when policy allows.
+4. Performance intake queries production spans/transactions, filters by sample count, p95 threshold, allowed span ops, and regression ratio.
+5. Accepted issues get a lightweight Back To Service status comment and optional repair-worker dispatch when policy allows.
 
 ### Phase 3: Diagnosis Engine
 

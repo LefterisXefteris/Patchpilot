@@ -44,6 +44,11 @@ export const validEnv = {
   BTS_TARGET_VERCEL_PROJECT_ID: '',
   BTS_TARGET_VERCEL_TEAM_ID: '',
   BTS_TARGET_SENTRY_PROJECT_SLUG: '',
+  PERF_ENABLED: 'true',
+  PERF_MIN_SAMPLE_COUNT: '20',
+  PERF_P95_THRESHOLD_MS: '1000',
+  PERF_REGRESSION_RATIO: '1.5',
+  PERF_ALLOWED_OPS: 'http.server,db,http.client,navigation',
   BTS_REPAIR_PROVIDER: 'claude',
 } satisfies NodeJS.ProcessEnv;
 
@@ -101,6 +106,14 @@ export function createTestConfig(overrides: Record<string, unknown> = {}): AppCo
       resolvedLabel: 'auto-recovery-resolved',
       ...((overrides.recovery as Record<string, unknown>) ?? {}),
     },
+    performance: {
+      enabled: true,
+      minSampleCount: 20,
+      p95ThresholdMs: 1_000,
+      regressionRatio: 1.5,
+      allowedOps: ['http.server', 'db', 'http.client', 'navigation'],
+      ...((overrides.performance as Record<string, unknown>) ?? {}),
+    },
     repair: {
       provider: 'claude',
       ...((overrides.repair as Record<string, unknown>) ?? {}),
@@ -108,6 +121,6 @@ export function createTestConfig(overrides: Record<string, unknown> = {}): AppCo
     autopilot: validPolicy,
   };
 
-  const { target: _t, recovery: _r, repair: _repair, ...rest } = overrides;
+  const { target: _t, recovery: _r, performance: _p, repair: _repair, ...rest } = overrides;
   return AppConfigSchema.parse({ ...base, ...rest });
 }

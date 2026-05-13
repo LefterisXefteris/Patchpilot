@@ -1,6 +1,11 @@
 import type { AppConfig } from '../config/schema.js';
 import { checkProductionHealth, type FetchLike } from './health-check.js';
 import { checkVercelDeployment, type DeployCheckDependencies } from './deploy-check.js';
+import {
+  checkSentryPerformanceRecovery,
+  type PerformanceCheckDependencies,
+  type PerformanceCheckInput,
+} from './performance-check.js';
 import { checkSentryQuieting, type SentryCheckDependencies } from './sentry-check.js';
 import type { CheckResult, RecoveryVerdict, VerificationResult } from './types.js';
 
@@ -10,6 +15,14 @@ export type VerifyRecoveryInput = {
   fetchImpl?: FetchLike;
   vercelDeps?: DeployCheckDependencies;
   sentryDeps?: SentryCheckDependencies;
+};
+
+export type VerifyPerformanceRecoveryInput = {
+  config: AppConfig;
+  performance: PerformanceCheckInput;
+  fetchImpl?: FetchLike;
+  vercelDeps?: DeployCheckDependencies;
+  performanceDeps?: PerformanceCheckDependencies;
 };
 
 export async function verifyRecovery(input: VerifyRecoveryInput): Promise<VerificationResult> {
@@ -22,6 +35,30 @@ export async function verifyRecovery(input: VerifyRecoveryInput): Promise<Verifi
   ]);
 
   const checks = [deployResult, healthResult, sentryResult];
+  const verdict = computeVerdict(checks);
+  const summary = buildSummary(verdict, checks);
+  const deploymentAgeSeconds = readNumber(deployResult.details, 'ageSeconds');
+
+  return {
+    verdict,
+    checks,
+    summary,
+    verifiedAt: new Date().toISOString(),
+    totalDurationMs: Date.now() - start,
+    deploymentAgeSeconds,
+  };
+}
+
+export async function verifyPerformanceRecovery(input: VerifyPerformanceRecoveryInput): Promise<VerificationResult> {
+  const start = Date.now();
+
+  const [deployResult, healthResult, performanceResult] = await Promise.all([
+    checkVercelDeployment(input.config, input.vercelDeps),
+    checkProductionHealth(input.config, input.fetchImpl),
+    checkSentryPerformanceRecovery(input.config, input.performance, input.performanceDeps),
+  ]);
+
+  const checks = [deployResult, healthResult, performanceResult];
   const verdict = computeVerdict(checks);
   const summary = buildSummary(verdict, checks);
   const deploymentAgeSeconds = readNumber(deployResult.details, 'ageSeconds');

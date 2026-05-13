@@ -74,6 +74,13 @@ export const AppConfigSchema = z.object({
     needsHumanLabel: z.string().default('needs-human'),
     resolvedLabel: z.string().default('auto-recovery-resolved'),
   }),
+  performance: z.object({
+    enabled: z.boolean().default(false),
+    minSampleCount: z.number().int().positive().default(20),
+    p95ThresholdMs: z.number().positive().default(1_000),
+    regressionRatio: z.number().positive().default(1.5),
+    allowedOps: z.array(z.string()).default(['http.server', 'db', 'http.client', 'navigation']),
+  }),
   repair: z
     .object({
       provider: RepairProviderSchema.default('claude'),

@@ -2,7 +2,7 @@
 
 Back To Service is an AI production recovery agent for a configured target app.
 
-It watches Sentry-created GitHub issues in the target repo, fetches linked Sentry evidence when needed, triggers a configured repair workflow, and verifies whether production recovered through Vercel, HTTP health checks, and Sentry quieting.
+It watches Sentry-created GitHub issues in the target repo, fetches linked Sentry evidence when needed, triggers a configured repair workflow, and verifies whether production recovered through Vercel, HTTP health checks, and Sentry quieting. It can also query Sentry performance data for production bottlenecks and open optimization PR work for human review.
 
 This repo is the **agent/control plane**. It does not fix itself. The broken application is a separate target repo.
 
@@ -28,6 +28,17 @@ Sentry production error
 -> Vercel deploys after the fix reaches production
 -> Back To Service verifies recovery
 -> Back To Service closes, waits, retries, or escalates the incident issue
+```
+
+Performance intake uses a parallel conservative flow:
+
+```text
+Sentry production spans / transactions
+-> Back To Service finds slow or regressed bottlenecks
+-> Back To Service creates or updates a GitHub performance incident issue
+-> Back To Service dispatches the repair worker with p75/p95/p99 and baseline context
+-> The worker opens an optimization PR
+-> Humans review before merge by default
 ```
 
 The system has already handled real incidents in `snapsyncai`, including a frontend boot crash caused by reading `runtimeConfig.version` when runtime config was missing.
@@ -56,6 +67,7 @@ Back To Service uses meaningful typed tools around real production systems:
 | `github_list_sentry_incident_issues` | Find existing GitHub issues with Sentry evidence. |
 | `sentry_list_issues` | Legacy fallback for unresolved production Sentry polling. |
 | `sentry_get_issue_event` | Fetch event evidence for diagnosis/evals. |
+| Sentry performance intake | Query production spans for slow or regressed bottlenecks. |
 | `github_find_or_create_incident_issue` | Deduplicate and record incidents in GitHub Issues. |
 | `github_repository_dispatch_claude` | Trigger the configured repair worker in the target repo. |
 | `vercel_get_latest_production_deployment` | Check the target production deployment. |
@@ -97,6 +109,13 @@ Legacy fallback: poll Sentry and sync incidents to GitHub Issues:
 ```bash
 npm run agent:sync -- --limit 5
 npm run agent:sync -- --apply --limit 5
+```
+
+Poll Sentry performance data and sync bottlenecks to GitHub Issues:
+
+```bash
+npm run agent:performance -- --limit 5
+npm run agent:performance -- --apply --limit 5
 ```
 
 Redispatch Claude for existing incidents:
@@ -212,6 +231,7 @@ Required local/provider configuration:
 
 - Sentry GitHub integration configured in the target repo to create incident issues.
 - Sentry token, org slug, project slug, environment, and region URL for evidence lookup.
+- Optional Sentry performance intake config: `PERF_ENABLED`, `PERF_MIN_SAMPLE_COUNT`, `PERF_P95_THRESHOLD_MS`, `PERF_REGRESSION_RATIO`, and `PERF_ALLOWED_OPS`.
 - GitHub App ID, private key, installation ID, agent repo, and target repo.
 - Vercel token, team ID, agent project ID, and target Vercel project ID.
 - Target production URL for recovery verification.

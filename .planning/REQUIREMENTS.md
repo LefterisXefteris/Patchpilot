@@ -20,6 +20,8 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **INCD-02**: Agent parses linked Sentry issue IDs, short IDs, or permalinks from GitHub issue title/body metadata.
 - [ ] **INCD-03**: Agent ignores or downgrades non-production, missing-evidence, and low-signal issues according to policy.
 - [ ] **INCD-04**: Agent deduplicates GitHub issue and Sentry issue pairs into one active recovery workflow.
+- [ ] **INCD-05**: Agent queries Sentry production spans/transactions for slow or regressed performance bottlenecks.
+- [ ] **INCD-06**: Agent creates or updates GitHub performance incident issues with p75/p95/p99, sample count, baseline/current comparison, and trace links when available.
 
 ### GitHub Issues
 
@@ -34,6 +36,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **DIAG-02**: Agent correlates the incident with the active or recent Vercel production deployment.
 - [ ] **DIAG-03**: Agent produces a root-cause hypothesis with confidence, evidence, and a patch plan.
 - [ ] **DIAG-04**: Agent refuses autonomous patching when evidence is insufficient or policy blocks the affected files/actions.
+- [ ] **DIAG-05**: Agent diagnoses performance incidents from spans, transactions, route names, DB query fingerprints, external-call hosts, releases, and recent commits.
 
 ### Patch Workflow
 
@@ -47,6 +50,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [ ] **RECV-01**: Agent tracks the Vercel deployment produced by the merged fix.
 - [ ] **RECV-02**: Agent verifies recovery by monitoring deployment status and Sentry recurrence after the fix ships.
+- [ ] **RECV-07**: Agent verifies performance fixes by checking whether the same Sentry bottleneck drops below threshold or improves against baseline, and marks weak sampling as degraded.
 - [ ] **RECV-03**: Agent marks the GitHub issue recovered only after production health signals pass.
 - [ ] **RECV-04**: Agent triggers configured fallback recovery when patching fails, deployment fails, or production worsens.
 - [ ] **RECV-05**: Agent can initiate Vercel rollback when policy allows and a safe rollback candidate exists.
