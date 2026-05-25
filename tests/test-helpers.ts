@@ -49,6 +49,13 @@ export const validEnv = {
   PERF_P95_THRESHOLD_MS: '1000',
   PERF_REGRESSION_RATIO: '1.5',
   PERF_ALLOWED_OPS: 'http.server,db,http.client,navigation',
+  POSTHOG_ENABLED: 'false',
+  POSTHOG_PERSONAL_API_KEY: 'posthog-secret',
+  POSTHOG_PROJECT_ID: '12345',
+  POSTHOG_HOST: 'https://us.posthog.com',
+  POSTHOG_IMPACT_EVENTS: 'signup_completed,checkout_completed,purchase_completed',
+  POSTHOG_IMPACT_WINDOW_HOURS: '24',
+  POSTHOG_IMPACT_BASELINE_HOURS: '24',
   BTS_REPAIR_PROVIDER: 'claude',
 } satisfies NodeJS.ProcessEnv;
 
@@ -114,6 +121,16 @@ export function createTestConfig(overrides: Record<string, unknown> = {}): AppCo
       allowedOps: ['http.server', 'db', 'http.client', 'navigation'],
       ...((overrides.performance as Record<string, unknown>) ?? {}),
     },
+    posthog: {
+      enabled: false,
+      personalApiKey: 'posthog-secret',
+      projectId: '12345',
+      host: 'https://us.posthog.com',
+      impactEvents: ['signup_completed', 'checkout_completed', 'purchase_completed'],
+      windowHours: 24,
+      baselineHours: 24,
+      ...((overrides.posthog as Record<string, unknown>) ?? {}),
+    },
     repair: {
       provider: 'claude',
       ...((overrides.repair as Record<string, unknown>) ?? {}),
@@ -121,6 +138,6 @@ export function createTestConfig(overrides: Record<string, unknown> = {}): AppCo
     autopilot: validPolicy,
   };
 
-  const { target: _t, recovery: _r, performance: _p, repair: _repair, ...rest } = overrides;
+  const { target: _t, recovery: _r, performance: _p, posthog: _ph, repair: _repair, ...rest } = overrides;
   return AppConfigSchema.parse({ ...base, ...rest });
 }

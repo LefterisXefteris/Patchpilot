@@ -149,6 +149,17 @@ export async function loadConfig(
         ? parseCsv(env.PERF_ALLOWED_OPS)
         : ['http.server', 'db', 'http.client', 'navigation'],
     },
+    posthog: {
+      enabled: parseBoolean(env.POSTHOG_ENABLED, false),
+      personalApiKey: await secretStore.get('POSTHOG_PERSONAL_API_KEY'),
+      projectId: env.POSTHOG_PROJECT_ID,
+      host: env.POSTHOG_HOST ?? 'https://us.posthog.com',
+      impactEvents: parseCsv(env.POSTHOG_IMPACT_EVENTS).length
+        ? parseCsv(env.POSTHOG_IMPACT_EVENTS)
+        : ['signup_completed', 'checkout_completed', 'purchase_completed'],
+      windowHours: parseNumber(env.POSTHOG_IMPACT_WINDOW_HOURS, 24),
+      baselineHours: parseNumber(env.POSTHOG_IMPACT_BASELINE_HOURS, 24),
+    },
     repair: {
       provider: env.BTS_REPAIR_PROVIDER ?? 'claude',
     },

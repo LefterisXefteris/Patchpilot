@@ -81,6 +81,15 @@ export const AppConfigSchema = z.object({
     regressionRatio: z.number().positive().default(1.5),
     allowedOps: z.array(z.string()).default(['http.server', 'db', 'http.client', 'navigation']),
   }),
+  posthog: z.object({
+    enabled: z.boolean().default(false),
+    personalApiKey: optionalString,
+    projectId: optionalString,
+    host: z.string().url().default('https://us.posthog.com'),
+    impactEvents: z.array(z.string()).default(['signup_completed', 'checkout_completed', 'purchase_completed']),
+    windowHours: z.number().int().positive().default(24),
+    baselineHours: z.number().int().positive().default(24),
+  }),
   repair: z
     .object({
       provider: RepairProviderSchema.default('claude'),

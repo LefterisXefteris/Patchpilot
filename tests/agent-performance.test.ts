@@ -6,6 +6,7 @@ import {
   runAgentPerformanceSync,
   sentryPerformanceMarker,
 } from '../src/agent/performance-sync.js';
+import type { ProductImpactSummary } from '../src/providers/posthog/impact.js';
 import type { SentryPerformanceBottleneck } from '../src/providers/sentry/performance.js';
 import { loadConfigFromEnv } from '../src/config/env.js';
 import { validEnv } from './test-helpers.js';
@@ -29,6 +30,32 @@ const bottleneck: SentryPerformanceBottleneck = {
   regressionRatio: 2,
   severity: 'high',
   permalink: 'https://sentry.example/traces/?query=transaction%3Asearch',
+};
+
+const productImpact: ProductImpactSummary = {
+  provider: 'posthog',
+  windowStart: '2026-05-12T12:00:00.000Z',
+  windowEnd: '2026-05-13T12:00:00.000Z',
+  baselineStart: '2026-05-11T12:00:00.000Z',
+  baselineEnd: '2026-05-12T12:00:00.000Z',
+  totalCurrentCount: 8,
+  totalBaselineCount: 20,
+  totalCurrentActors: 7,
+  totalBaselineActors: 18,
+  totalDeltaCount: -12,
+  totalDeltaPercent: -60,
+  summary: '8 configured impact events observed, down 60% versus baseline.',
+  impactEvents: [
+    {
+      event: 'signup_completed',
+      currentCount: 8,
+      currentActors: 7,
+      baselineCount: 20,
+      baselineActors: 18,
+      deltaCount: -12,
+      deltaPercent: -60,
+    },
+  ],
 };
 
 describe('runAgentPerformanceSync', () => {
@@ -74,6 +101,7 @@ describe('runAgentPerformanceSync', () => {
           addIssueLabels,
           createRepositoryDispatch,
         },
+        productImpact: { summarizeProductImpact: async () => productImpact },
       },
     );
 
@@ -86,6 +114,7 @@ describe('runAgentPerformanceSync', () => {
         incidentKind: 'performance',
         sentryPerformanceFingerprint: bottleneck.fingerprint,
         issueNumber: 22,
+        productImpact: expect.objectContaining({ provider: 'posthog', totalDeltaPercent: -60 }),
         performance: expect.objectContaining({
           transaction: 'GET /api/search',
           p95Ms: 1800,
@@ -113,12 +142,14 @@ describe('runAgentPerformanceSync', () => {
           addIssueLabels: vi.fn(),
           createRepositoryDispatch,
         },
+        productImpact: { summarizeProductImpact: async () => productImpact },
       },
     );
 
     expect(summary.results[0]?.action).toBe('updated_issue');
     expect(summary.results[0]?.agentDispatch).toBe('skipped');
     expect(addIssueComment).toHaveBeenCalledWith(8, expect.stringContaining('Performance Update'));
+    expect(addIssueComment).toHaveBeenCalledWith(8, expect.stringContaining('## Product Impact'));
     expect(createRepositoryDispatch).not.toHaveBeenCalled();
   });
 
@@ -151,6 +182,7 @@ describe('performance issue formatting', () => {
     expect(body).toContain('## Production Performance Bottleneck');
     expect(body).toContain('**Incident kind:** performance');
     expect(body).toContain('**p95:** 1800ms');
+    expect(buildPerformanceIssueBody(bottleneck, undefined, productImpact)).toContain('## Product Impact');
     expect(performanceIssueLabels(bottleneck)).toEqual(['sentry', 'production', 'back-to-service:performance', 'severity:high']);
   });
 });

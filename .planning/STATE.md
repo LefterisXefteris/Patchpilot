@@ -33,6 +33,7 @@ See: .planning/PROJECT.md (updated 2026-04-25)
 - Use GitHub Issues as the visible incident record.
 - Rely on Sentry's GitHub integration to create first incident issues; Patchpilot watches and acts on eligible existing issues.
 - Treat Sentry performance bottlenecks as conservative incidents: create/update GitHub issues, dispatch optimization PR work, and keep merge human-gated by default.
+- Use optional PostHog product-impact context to show whether configured product events changed during incident windows.
 - Store compact redacted incident memory in SQLite first; memory is advisory during diagnosis and current Sentry/GitHub evidence remains authoritative.
 - Enforce explicit safety policy and auditability before autonomous production mutation.
 
@@ -46,3 +47,4 @@ See: .planning/PROJECT.md (updated 2026-04-25)
 - On 2026-05-10, SQLite incident memory was added for compact synthetic Sentry lessons, similarity retrieval, and bounded advisory context to reduce repeated diagnosis tokens.
 - On 2026-05-11, OpenAI Codex was added as an alternate target-repo repair worker through `BTS_REPAIR_PROVIDER=codex`, alongside the existing Claude workflow.
 - On 2026-05-13, Sentry performance bottleneck intake was added behind `PERF_ENABLED`, with GitHub performance incident sync, repair dispatch payloads, and performance verification checks.
+- On 2026-05-13, optional PostHog product-impact enrichment was added behind `POSTHOG_ENABLED`, using read-only HogQL query context in GitHub issues and repair dispatch payloads.
