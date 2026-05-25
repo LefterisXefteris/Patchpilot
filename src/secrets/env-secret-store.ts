@@ -1,7 +1,7 @@
 import type { SecretStore } from './types.js';
 
 export class EnvSecretStore implements SecretStore {
-  constructor(private readonly env: NodeJS.ProcessEnv = process.env) {}
+  constructor(private readonly env: Record<string, string | undefined> = process.env) {}
 
   async get(name: string): Promise<string | undefined> {
     return this.env[name];
