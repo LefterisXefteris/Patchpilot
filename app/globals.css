@@ -26,24 +26,24 @@
 
 :root {
   color-scheme: dark;
-  --background: #0b0f12;
-  --foreground: #f2f5f3;
-  --card: #11181d;
-  --card-foreground: #f2f5f3;
-  --popover: #11181d;
-  --popover-foreground: #f2f5f3;
-  --primary: #45c3a3;
-  --primary-foreground: #06100d;
-  --secondary: #223038;
-  --secondary-foreground: #d9e3df;
-  --muted: #182126;
-  --muted-foreground: #91a19b;
-  --accent: #26343d;
-  --accent-foreground: #f2f5f3;
-  --destructive: #e65f4c;
-  --border: #26343a;
-  --input: #314047;
-  --ring: #58d6b2;
+  --background: #07090d;
+  --foreground: #f4f7f6;
+  --card: #11161d;
+  --card-foreground: #f4f7f6;
+  --popover: #11161d;
+  --popover-foreground: #f4f7f6;
+  --primary: #6ee7c8;
+  --primary-foreground: #04110d;
+  --secondary: #1e2733;
+  --secondary-foreground: #dce5e4;
+  --muted: #171d25;
+  --muted-foreground: #96a4a8;
+  --accent: #233343;
+  --accent-foreground: #f4f7f6;
+  --destructive: #ff6b57;
+  --border: #283240;
+  --input: #344454;
+  --ring: #73f0ce;
 }
 
 * {
@@ -59,9 +59,16 @@ body {
   min-height: 100%;
   margin: 0;
   background:
-    linear-gradient(135deg, rgba(69, 195, 163, 0.08), transparent 32%),
-    linear-gradient(315deg, rgba(230, 95, 76, 0.06), transparent 28%),
+    linear-gradient(rgba(110, 231, 200, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(110, 231, 200, 0.035) 1px, transparent 1px),
+    radial-gradient(circle at 8% 0%, rgba(110, 231, 200, 0.12), transparent 28%),
+    radial-gradient(circle at 92% 8%, rgba(92, 156, 255, 0.1), transparent 24%),
     var(--background);
+  background-size:
+    42px 42px,
+    42px 42px,
+    auto,
+    auto;
   color: var(--foreground);
   font-family: var(--font-sans);
   letter-spacing: 0;
